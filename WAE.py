@@ -74,8 +74,8 @@ def average_mtp(filepath, type, transform):
     # Data is now [Repetition, Frequency, Fold, Specimen, HIs]
 
     # Initialize empty arrays
-    all_f_values, all_m_values, all_t_values, all_p_values = [], [], []
-    test_f_values, test_m_values, test_t_values, test_p_values = [], [], []
+    all_f_values, all_m_values, all_t_values, all_p_values = [], [], [], []
+    test_f_values, test_m_values, test_t_values, test_p_values = [], [], [], []
 
     # Iterate over frequencies, folds, and repetitions
     for rep in range(HIs.shape[0]):  # Repetitions (seeds)
