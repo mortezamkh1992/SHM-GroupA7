@@ -38,6 +38,89 @@ def wae(HIs, fold, filepath = "", name = ""):
         HI_graph(newHIs, filepath, name, True)
     return newHIs
 
+def average_mtp(filepath, type, transform):
+    """
+    Compute the average Mo, Tr, Pr values across all folds, frequencies, and seeds,
+    while keeping FFT, HLB and f-all, f-test separate
+
+    Parameters:
+    - filepath (string): directory of HI CSVs
+    - type (string): "DeepSAD" or "VAE"
+    - transform (string): "FFT" or "HLB"
+
+    Returns: None
+    """
+
+    # Seeds used
+    seeds = ("42", "52", "62", "72", "82")
+
+    # Load HI data
+    print(f"Loading {type} - {transform}")
+    if type == "VAE":
+        HIs = []
+        for seed in seeds:
+            filename = f"{type}_{transform}_seed_{seed}.npy"
+            HI = np.load(os.path.join(filepath, filename), allow_pickle=True)
+            HI = HI.transpose(1, 0, 2, 3)
+            HIs.append(HI)
+        HIs = np.stack(HIs)
+    else:  # DeepSAD
+        HIs = []
+        for seed in seeds:
+            filename = f"{type}_{transform}_seed_{seed}.npy"
+            HIs.append(np.stack(np.load(os.path.join(filepath, filename), allow_pickle=True)))
+        HIs = np.stack(HIs)
+
+    # Data is now [Repetition, Frequency, Fold, Specimen, HIs]
+
+    # Initialize empty arrays
+    all_m_values, all_t_values, all_p_values = [], [], []
+    test_m_values, test_t_values, test_p_values = [], [], []
+
+    # Iterate over frequencies, folds, and repetitions
+    for rep in range(HIs.shape[0]):  # Repetitions (seeds)
+        for freq in range(HIs.shape[1]):  # Frequencies
+            for fold in range(HIs.shape[2]):  # Folds
+                # Calculate f-all and f-test
+                f_all = fitness(HIs[rep, freq, fold])
+                f_test = test_fitness(
+                    HIs[rep, freq, fold, fold],
+                    np.concatenate((HIs[rep, freq, fold, :fold], HIs[rep, freq, fold, fold + 1:]))
+                )
+
+                # Append
+                all_m_values.append(f_all[1])
+                all_t_values.append(f_all[2])
+                all_p_values.append(f_all[3])
+
+                test_m_values.append(f_test[1])
+                test_t_values.append(f_test[2])
+                test_p_values.append(f_test[3])
+
+    # Compute overall averages and standard deviations
+    all_avg_m, all_std_m = np.mean(all_m_values), np.std(all_m_values)
+    all_avg_t, all_std_t = np.mean(all_t_values), np.std(all_t_values)
+    all_avg_p, all_std_p = np.mean(all_p_values), np.std(all_p_values)
+
+    test_avg_m, test_std_m = np.mean(test_m_values), np.std(test_m_values)
+    test_avg_t, test_std_t = np.mean(test_t_values), np.std(test_t_values)
+    test_avg_p, test_std_p = np.mean(test_p_values), np.std(test_p_values)
+
+    # Save to CSV
+    result_data = {
+        "Dataset": ["f-all", "test"],
+        "Avg_m": [all_avg_m, test_avg_m],
+        "Std_m": [all_std_m, test_std_m],
+        "Avg_t": [all_avg_t, test_avg_t],
+        "Std_t": [all_std_t, test_std_t],
+        "Avg_p": [all_avg_p, test_avg_p],
+        "Std_p": [all_std_p, test_std_p],
+    }
+    result_df = pd.DataFrame(result_data)
+
+    output_filename = os.path.join(filepath, f"averages_std_{type}_{transform}.csv")
+    result_df.to_csv(output_filename, index=False)
+    print(f"Averages and standard deviations saved to {output_filename}")
 
 def eval_wae(filepath, type, transform):
     """
@@ -143,5 +226,7 @@ def eval_wae(filepath, type, transform):
 
 #csv_dir = r"C:\Users\pablo\Downloads\VAE_Ultimate_2_NO_PCA"
 csv_dir = r"C:\Users\Jamie\Documents\Uni\Year 2\Q3+4\Project\CSV-FFT-HLB-Reduced"
+average_mtp(csv_dir, "DeepSAD", "FFT")
+average_mtp(csv_dir, "DeepSAD", "HLB")
 eval_wae(csv_dir, "DeepSAD", "FFT")
 eval_wae(csv_dir, "DeepSAD", "HLB")
