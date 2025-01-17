@@ -108,13 +108,13 @@ def average_mtp(filepath, type, transform):
 
     # Save to CSV
     result_data = {
-        "Dataset": ["f-all", "test"],
-        "Avg_m": [all_avg_m, test_avg_m],
-        "Std_m": [all_std_m, test_std_m],
-        "Avg_t": [all_avg_t, test_avg_t],
-        "Std_t": [all_std_t, test_std_t],
-        "Avg_p": [all_avg_p, test_avg_p],
-        "Std_p": [all_std_p, test_std_p],
+        "Fitness": ["f-all", "test"],
+        "Avg_Mo": [all_avg_m, test_avg_m],
+        "Std_Mo": [all_std_m, test_std_m],
+        "Avg_Tr": [all_avg_t, test_avg_t],
+        "Std_Tr": [all_std_t, test_std_t],
+        "Avg_Pr": [all_avg_p, test_avg_p],
+        "Std_Pr": [all_std_p, test_std_p],
     }
     result_df = pd.DataFrame(result_data)
 
