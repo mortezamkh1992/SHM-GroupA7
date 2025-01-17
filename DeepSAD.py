@@ -454,7 +454,7 @@ def load_data(dir, filename, labelled_fraction, ignore):
         # Add artificial labels
         teol = data.shape[0]
 
-        x_values = np.arange(0, teol)
+        x_values = np.arange(0, teol+1)
         #health_indicators = ((x_values ** 2) / (teol ** 2)) * 2 - 1  # Equation scaled from -1 to 1
         health_indicators = 1-2*x_values/teol
 
@@ -463,8 +463,6 @@ def load_data(dir, filename, labelled_fraction, ignore):
 
         for i in range(int(len(labels) * labelled_fraction)):  # Originally 3
             labels[-i - 1] = health_indicators[-i - 1]  # Unhealthy
-
-        print(labels)
 
         return torch.tensor(data, dtype=torch.float32), torch.tensor(labels, dtype=torch.float)
     else:
@@ -712,7 +710,7 @@ def DeepSAD_train_run(dir, freq, file_name, opt=False):
             list = []
             for test_sample in samples:
                 test_data, temp_targets = load_data(os.path.join(dir, test_sample), file_name_with_freq, labelled_fraction, ignore)
-                test_data = (test_data - normal_mn) / normal_sd  # Normalise using test statistics
+                test_data = (test_data - normal_mn) / normal_sd  # Normalise using train statistics
 
                 # Calculate HI at each state
                 current_result = []
@@ -732,7 +730,7 @@ def DeepSAD_train_run(dir, freq, file_name, opt=False):
             list = list/av_end
 
             ftn = fitness(list)
-            testftn = test_fitness(list[sample_count], list)
+            testftn = test_fitness(list[sample_count], np.concatenate((list[:sample_count], list[sample_count+1:])))
             print("F-test:", testftn[0], "| Mo:", testftn[1], "| Tr:", testftn[2], "| Pr:", testftn[3])
             print("F-all: ", ftn[0], "| Mo:", ftn[1], "| Tr:", ftn[2], "| Pr:", ftn[3])
             #Graphs.HI_graph(list, dir, samples[sample_count] + " " + freq + "kHz")
@@ -812,7 +810,7 @@ def DeepSAD_HPC():
     global ds_seed
     torch.manual_seed(ds_seed)
 
-    optimise = True
+    optimise = False
 
     # List frequencies, filenames and samples
     frequencies = ["050", "100", "125", "150", "200", "250"]
@@ -841,8 +839,8 @@ def DeepSAD_HPC():
         save_evaluation(np.array(HIs[1]), "DeepSAD_HLB", csv_dir)
 
 
-#for repeats in [42, 52, 62, 72, 82]:
-for repeats in [42]:
+for repeats in [42, 52, 62, 72, 82]:
+#for repeats in [42]:
     global ds_seed
     ds_seed = repeats
     DeepSAD_HPC()
