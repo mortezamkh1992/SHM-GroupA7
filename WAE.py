@@ -118,7 +118,7 @@ def average_mtp(filepath, type, transform):
     }
     result_df = pd.DataFrame(result_data)
 
-    output_filename = os.path.join(filepath, f"averages_std_{type}_{transform}.csv")
+    output_filename = os.path.join(filepath, f"average_mtp_{type}_{transform}.csv")
     result_df.to_csv(output_filename, index=False)
     print(f"Averages and standard deviations saved to {output_filename}")
 
