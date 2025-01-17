@@ -74,8 +74,8 @@ def average_mtp(filepath, type, transform):
     # Data is now [Repetition, Frequency, Fold, Specimen, HIs]
 
     # Initialize empty arrays
-    all_m_values, all_t_values, all_p_values = [], [], []
-    test_m_values, test_t_values, test_p_values = [], [], []
+    all_f_values, all_m_values, all_t_values, all_p_values = [], [], []
+    test_f_values, test_m_values, test_t_values, test_p_values = [], [], []
 
     # Iterate over frequencies, folds, and repetitions
     for rep in range(HIs.shape[0]):  # Repetitions (seeds)
@@ -89,19 +89,23 @@ def average_mtp(filepath, type, transform):
                 )
 
                 # Append
+                all_f_values.append(f_all[0])
                 all_m_values.append(f_all[1])
                 all_t_values.append(f_all[2])
                 all_p_values.append(f_all[3])
 
+                test_f_values.append(f_test[0])
                 test_m_values.append(f_test[1])
                 test_t_values.append(f_test[2])
                 test_p_values.append(f_test[3])
 
     # Compute overall averages and standard deviations
+    all_avg_f, all_std_f = np.mean(all_f_values), np.std(all_f_values)
     all_avg_m, all_std_m = np.mean(all_m_values), np.std(all_m_values)
     all_avg_t, all_std_t = np.mean(all_t_values), np.std(all_t_values)
     all_avg_p, all_std_p = np.mean(all_p_values), np.std(all_p_values)
 
+    test_avg_f, test_std_f = np.mean(test_f_values), np.std(test_f_values)
     test_avg_m, test_std_m = np.mean(test_m_values), np.std(test_m_values)
     test_avg_t, test_std_t = np.mean(test_t_values), np.std(test_t_values)
     test_avg_p, test_std_p = np.mean(test_p_values), np.std(test_p_values)
@@ -115,6 +119,8 @@ def average_mtp(filepath, type, transform):
         "Std_Tr": [all_std_t, test_std_t],
         "Avg_Pr": [all_avg_p, test_avg_p],
         "Std_Pr": [all_std_p, test_std_p],
+        "Avg_F": [all_avg_f, test_avg_f],
+        "Std_F": [all_std_f, test_std_f]
     }
     result_df = pd.DataFrame(result_data)
 
