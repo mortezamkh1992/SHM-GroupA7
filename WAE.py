@@ -40,7 +40,7 @@ def wae(HIs, fold, filepath = "", name = ""):
 
 def average_mtp(filepath, type, transform):
     """
-    Compute the average Mo, Tr, Pr values across all folds, frequencies, and seeds,
+    Compute the average fitness, Mo, Tr, Pr values across all folds, frequencies, and seeds,
     while keeping FFT, HLB and f-all, f-test separate
 
     Parameters:
@@ -126,7 +126,6 @@ def average_mtp(filepath, type, transform):
 
     output_filename = os.path.join(filepath, f"average_mtp_{type}_{transform}.csv")
     result_df.to_csv(output_filename, index=False)
-    print(f"Averages and standard deviations saved to {output_filename}")
 
 def eval_wae(filepath, type, transform):
     """
@@ -230,9 +229,101 @@ def eval_wae(filepath, type, transform):
             HI_graph(HIs[rep, freq, fold], filepath, f"{freqs[freq]}kHz_{type}_{transform}_{fold}", False)
     big_plot(filepath, type, transform)
 
+def average_mtp_wae(filepath, type, transform):
+    """
+    Compute the average fitness, Mo, Tr, Pr values across all folds, frequencies, and seeds,
+    while keeping FFT, HLB and f-all, f-test separate after WAE
+
+    Parameters:
+    - filepath (string): directory of HI CSVs
+    - type (string): "DeepSAD" or "VAE"
+    - transform (string): "FFT" or "HLB"
+
+    Returns: None
+    """
+
+    # Seeds and frequencies
+    seeds = ("42", "52", "62", "72", "82")
+    repnum = len(seeds)
+
+    # Load HI data
+    print(f"Loading {type} - {transform} for WAE averaging")
+    if type == "VAE":
+        HIs = []
+        for rep in range(repnum):
+            filename = f"{type}_{transform}_seed_{seeds[rep]}.npy"
+            HI = np.load(os.path.join(filepath, filename), allow_pickle=True)
+            HI = HI.transpose(1, 0, 2, 3)
+            HIs.append(HI)
+        HIs = np.stack(HIs)
+    else: # DeepSAD
+        HIs = []
+        for rep in range(repnum):
+            filename = f"{type}_{transform}_seed_{seeds[rep]}.npy"
+            HIs.append(np.stack(np.load(os.path.join(filepath, filename), allow_pickle=True)))
+        HIs = np.stack(HIs)
+
+    # Data is now [Repetition, Frequency, Fold, Specimen, HIs]
+
+    foldnum = HIs.shape[2]
+
+    # Initialize empty arrays
+    wae_HIs = np.empty((repnum, foldnum), dtype=object)
+    all_f_values, all_m_values, all_t_values, all_p_values = [], [], [], []
+    test_f_values, test_m_values, test_t_values, test_p_values = [], [], [], []
+
+    for fold in range(foldnum):
+        for rep in range(repnum):
+            wae_HIs[rep, fold] = wae(HIs[rep, :, fold], fold, filepath, f"WAE_{type}_{transform}_{fold}")
+
+            # Calculate f-all and f-test
+            f_all = fitness(wae_HIs[rep, fold])
+            f_test = test_fitness(wae_HIs[rep, fold][fold], np.concatenate((wae_HIs[rep, fold][:fold], wae_HIs[rep, fold][fold + 1:])))
+
+            # Append
+            all_f_values.append(f_all[0])
+            all_m_values.append(f_all[1])
+            all_t_values.append(f_all[2])
+            all_p_values.append(f_all[3])
+
+            test_f_values.append(f_test[0])
+            test_m_values.append(f_test[1])
+            test_t_values.append(f_test[2])
+            test_p_values.append(f_test[3])
+
+    # Compute averages and std
+    avg_f, std_f = np.mean(all_f_values), np.std(all_f_values)
+    avg_m, std_m = np.mean(all_m_values), np.std(all_m_values)
+    avg_t, std_t = np.mean(all_t_values), np.std(all_t_values)
+    avg_p, std_p = np.mean(all_p_values), np.std(all_p_values)
+
+    test_avg_f, test_std_f = np.mean(test_f_values), np.std(test_f_values)
+    test_avg_m, test_std_m = np.mean(test_m_values), np.std(test_m_values)
+    test_avg_t, test_std_t = np.mean(test_t_values), np.std(test_t_values)
+    test_avg_p, test_std_p = np.mean(test_p_values), np.std(test_p_values)
+
+    result_data = {
+        "Fitness": ["f-all", "test"],
+        "Avg_Mo": [avg_m, test_avg_m],
+        "Std_Mo": [std_m, test_std_m],
+        "Avg_Tr": [avg_t, test_avg_t],
+        "Std_Tr": [std_t, test_std_t],
+        "Avg_Pr": [avg_p, test_avg_p],
+        "Std_Pr": [std_p, test_std_p],
+        "Avg_F": [avg_f, test_avg_f],
+        "Std_F": [std_f, test_std_f]
+    }
+    result_df = pd.DataFrame(result_data)
+
+    output_filename = os.path.join(filepath, f"average_mtp_wae_{type}_{transform}.csv")
+    result_df.to_csv(output_filename, index=False)
+
 #csv_dir = r"C:\Users\pablo\Downloads\VAE_Ultimate_2_NO_PCA"
 csv_dir = r"C:\Users\Jamie\Documents\Uni\Year 2\Q3+4\Project\CSV-FFT-HLB-Reduced"
+
 average_mtp(csv_dir, "DeepSAD", "FFT")
 average_mtp(csv_dir, "DeepSAD", "HLB")
 eval_wae(csv_dir, "DeepSAD", "FFT")
 eval_wae(csv_dir, "DeepSAD", "HLB")
+average_mtp_wae(csv_dir, "DeepSAD", "FFT")
+average_mtp_wae(csv_dir, "DeepSAD", "HLB")
