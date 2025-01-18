@@ -247,7 +247,7 @@ def average_mtp_wae(filepath, type, transform):
     repnum = len(seeds)
 
     # Load HI data
-    print(f"Loading {type} - {transform} for WAE averaging")
+    print(f"Loading {type} - {transform}")
     if type == "VAE":
         HIs = []
         for rep in range(repnum):
