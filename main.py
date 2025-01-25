@@ -7,10 +7,11 @@ import os
 # Import modules
 from Signal_Processing import Transforms as SP
 from Prognostic_criteria import fitness, scale_exact
-from DeepSAD import DeepSAD_train_run, plot_ds_images
+from DeepSAD import DeepSAD_train_run
 from VAE import VAE_optimize_hyperparameters, VAE_train_run, VAE_process_csv_files, simple_store_hyperparameters
 from WAE import eval_wae
 import Graphs
+import Extract_features
 
 # Set options
 pd.set_option('display.max_columns', 15)
@@ -39,7 +40,7 @@ def saveFeatures(dir):
             # Time domain extraction for 'kHz.csv' files
             if name.endswith('kHz.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.time_to_feature(data)
+                features = Extract_features.time_to_feature(data)
                 new_filename = name.replace('kHz.csv', 'kHz_FT.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -47,7 +48,7 @@ def saveFeatures(dir):
             # FFT feature extraction
             elif name.endswith('FFT.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.freq_to_feature(data)
+                features = Extract_features.freq_to_feature(data)
                 new_filename = name.replace('FFT.csv', 'FFT_FT.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -55,7 +56,7 @@ def saveFeatures(dir):
             # Hilbert transform (HLB) feature extraction
             elif name.endswith('HLB.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.time_to_feature(data)
+                features = Extract_features.time_to_feature(data)
                 new_filename = name.replace('HLB.csv', 'HLB_FT.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -63,7 +64,7 @@ def saveFeatures(dir):
             # Empirical Mode Decomposition (EMD) feature extraction
             elif name.endswith('EMD.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.time_to_feature(data)
+                features = Extract_features.time_to_feature(data)
                 new_filename = name.replace('EMD.csv', 'EMD_FT.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -78,7 +79,7 @@ def saveFeatures(dir):
                         for j in range(17):
                             data3d[k][i][j] = data.iloc[126*k + i, j]
 
-                features = extract_features.STFT_to_feature(data3d)
+                features = Extract_features.STFT_to_feature(data3d)
                 new_filename = name.replace('SFT.csv', 'SFT_FT.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -101,7 +102,7 @@ def FFT_HLB_Reduced_Feat(dir):
             # FFT feature reduction
             if name.endswith('FFT.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.FFT_Feat_reduced(data)
+                features = Extract_features.FFT_Feat_reduced(data)
                 new_filename = name.replace('FFT.csv', 'FFT_FT_Reduced.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)
@@ -109,7 +110,7 @@ def FFT_HLB_Reduced_Feat(dir):
             # Hilbert (HLB) feature reduction
             elif name.endswith('HLB.csv'):
                 data = pd.read_csv(os.path.join(root, name))
-                features = extract_features.HLB_Feat_reduced(data)
+                features = Extract_features.HLB_Feat_reduced(data)
                 new_filename = name.replace('HLB.csv', 'HLB_FT_Reduced.csv')
                 csv_file_path = os.path.join(root, new_filename)
                 features.to_csv(csv_file_path, index=False)

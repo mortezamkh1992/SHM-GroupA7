@@ -319,13 +319,13 @@ def average_mtp_wae(filepath, type, transform):
     result_df.to_csv(output_filename, index=False)
 
 #csv_dir = r"C:\Users\pablo\Downloads\VAE_Ultimate_2_NO_PCA"
-csv_dir = r"C:\Users\Jamie\Documents\Uni\Year 2\Q3+4\Project\CSV-FFT-HLB-Reduced"
+#csv_dir = r"C:\Users\Jamie\Documents\Uni\Year 2\Q3+4\Project\CSV-FFT-HLB-Reduced"
 
-average_mtp(csv_dir, "DeepSAD", "FFT")
-average_mtp(csv_dir, "DeepSAD", "HLB")
+#average_mtp(csv_dir, "DeepSAD", "FFT")
+#average_mtp(csv_dir, "DeepSAD", "HLB")
 
-eval_wae(csv_dir, "DeepSAD", "FFT")
-eval_wae(csv_dir, "DeepSAD", "HLB")
+#eval_wae(csv_dir, "DeepSAD", "FFT")
+#eval_wae(csv_dir, "DeepSAD", "HLB")
 
-average_mtp_wae(csv_dir, "DeepSAD", "FFT")
-average_mtp_wae(csv_dir, "DeepSAD", "HLB")
+#average_mtp_wae(csv_dir, "DeepSAD", "FFT")
+#average_mtp_wae(csv_dir, "DeepSAD", "HLB")

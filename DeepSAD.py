@@ -839,8 +839,8 @@ def DeepSAD_HPC():
         save_evaluation(np.array(HIs[1]), "DeepSAD_HLB", csv_dir)
 
 
-for repeats in [42, 52, 62, 72, 82]:
+#for repeats in [42, 52, 62, 72, 82]:
 #for repeats in [42]:
-    global ds_seed
-    ds_seed = repeats
-    DeepSAD_HPC()
+#    global ds_seed
+#    ds_seed = repeats
+#    DeepSAD_HPC()
