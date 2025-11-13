@@ -13,6 +13,10 @@ from sklearn.preprocessing import StandardScaler
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import random
+import ast
+from statistics import multimode
+import sys
+import subprocess
 
 def VAE_merge_data(train_filenames):
     """
@@ -1173,6 +1177,237 @@ def VAE_single_fold(n_calls_per_fold):
             break
         break
 
-#vae_seed = 42
-#csv_dir = r"C:\Users\pablo\Downloads\VAE_Ultimate_2_NO_PCA"
-#VAE_train_run(csv_dir)
+def VAE_sensitivity_analysis(dir):
+    """
+    Run VAE hyperparameter sensitivity analysis for alpha, beta, gamma
+    across all frequencies and panels, using Option A (best per-frequency baseline).
+
+    Parameters:
+        - dir (str): Directory containing data
+    Returns: None
+    """
+
+    global vae_seed
+    tf.compat.v1.reset_default_graph()
+    tf.random.set_seed(vae_seed)
+    np.random.seed(vae_seed)
+
+    alpha_grid = np.linspace(0.0, 0.4, 5)  # 0.00, 0.10, 0.20, 0.30, 0.40
+    beta_grid = np.linspace(0.5, 3.5, 5)  # 0.5, 1.25, 2.0, 2.75, 3.5
+    gamma_grid = np.linspace(1.0, 4.5, 5)  # [1.0, 1.875, 2.75, 3.625, 4.5]
+
+    #         Real(0.05, 0.1, name='alpha'),
+    #         Real(1.4, 1.8, name='beta'),
+    #         Real(2.6, 3, name='gamma')
+
+    freqs = ("050_kHz", "100_kHz", "125_kHz", "150_kHz", "200_kHz", "250_kHz")
+    panels = ("L103", "L104", "L105", "L109", "L123")
+    file_types = ["FFT_FT_Reduced", "HLB_FT_Reduced"]
+
+    for file_type in file_types:
+        print(f"Starting sensitivity analysis for {file_type}")
+
+        hp_path = os.path.join(dir, f"hyperparameters-opt-{file_type}.csv")
+        hp_df = pd.read_csv(hp_path, index_col=0)
+
+        out_csv = os.path.join(dir, f"sensitivity_results_{file_type}.csv")
+
+        # Find which sensitivity combinations have been completed already
+        if os.path.exists(out_csv):
+            sens_df = pd.read_csv(out_csv)
+            completed = set(
+                (
+                    row["file_type"],
+                    row["freq"],
+                    round(row["alpha"], 5),
+                    round(row["beta"], 5),
+                    round(row["gamma"], 5)
+                )
+                for _, row in sens_df.iterrows()
+            )
+        else:
+            completed = set()
+
+        # Determine hyperparameter baseline per frequency
+        freq_baselines = {}
+
+        for freq in freqs:
+            h1_list, bs_list, lr_list, ep_list = [], [], [], []
+
+            for panel in panels:
+                cell = hp_df.loc[freq, panel]
+
+                try:
+                    params, err = ast.literal_eval(cell)
+                except Exception:
+                    cleaned = (
+                        cell.replace("np.int64", "")
+                        .replace("np.float64", "")
+                        .replace("(", "")
+                        .replace(")", "")
+                    )
+                    params, err = eval(cleaned)
+
+                h1_list.append(int(params[0]))
+                bs_list.append(int(params[1]))
+                lr_list.append(float(params[2]))
+                ep_list.append(int(params[3]))
+
+            def pick_int(values):
+                """
+                Select representative integer from list.
+
+                Parameters:
+                    - values (list): List of numeric values from different panels
+                Returns:
+                    - int: Mode if unique, otherwise median
+                """
+
+                modes = multimode(values)
+                if len(modes) == 1:
+                    return int(modes[0])
+                return int(np.median(values))
+
+            base_hidden_1 = pick_int(h1_list)
+            base_batch = pick_int(bs_list)
+            base_lr = float(np.median(lr_list)) # Use median value
+            base_epochs = int(np.max(ep_list)) # Use max epochs per frequency
+
+            freq_baselines[freq] = (base_hidden_1, base_batch, base_lr, base_epochs)
+
+            print(
+                f"Freq {freq}: baseline h1={base_hidden_1}, batch={base_batch}, lr={base_lr:.4g}, epochs={base_epochs}")
+
+        # Determine sensitivity by looping over alpha, beta, gamma range
+        counter = 0
+        for freq, (base_hidden_1, base_batch, base_lr, base_epochs) in freq_baselines.items():
+            for alpha in alpha_grid:
+                for beta in beta_grid:
+                    for gamma in gamma_grid:
+
+                        # Check whether sensitivity has been performed
+                        key = (file_type, freq, round(alpha, 5), round(beta, 5), round(gamma, 5))
+                        if key in completed:
+                            print(
+                                f"Skipping already completed triple alpha={alpha}, beta={beta}, gamma={gamma} for {file_type} {freq}")
+                            continue
+
+                        print(f"{file_type} {freq} alpha={alpha:.3f} beta={beta:.3f} gamma={gamma:.3f}")
+
+                        f_all_vals, f_test_vals = [], []
+
+                        # Loop over all panels as test pannel
+                        for panel in panels:
+
+                            counter += 1
+                            print("Counter:", counter)
+                            print("Panel:", panel)
+                            print("Freq:", freq)
+                            print("SP Features:", file_type)
+
+                            # Train and test split
+                            train_files = [
+                                os.path.join(dir, f"concatenated_{freq}_{p}_{file_type}.csv")
+                                for p in panels if p != panel
+                            ]
+
+                            vae_train_data = VAE_merge_data(train_files)
+                            vae_train_data.drop(vae_train_data.columns[-1], axis=1, inplace=True)
+
+                            test_file = os.path.join(dir, f"concatenated_{freq}_{panel}_{file_type}.csv")
+                            vae_test_data = pd.read_csv(test_file, header=None).values.transpose()
+                            vae_test_data = np.delete(vae_test_data, -1, axis=1)
+
+                            # Normalize the train and test data, with respect to the train data
+                            vae_scaler = StandardScaler()
+                            vae_scaler.fit(vae_train_data)
+                            vae_train_scaled = vae_scaler.transform(vae_train_data)
+                            vae_test_scaled = vae_scaler.transform(vae_test_data)
+
+                            # Generate HIs with VAE_train function using baseline + (alpha,beta,gamma)
+                            health_indicators = VAE_train(
+                                hidden_1=base_hidden_1,
+                                batch_size=base_batch,
+                                learning_rate=base_lr,
+                                epochs=base_epochs,
+                                reloss_coeff=alpha,
+                                klloss_coeff=beta,
+                                moloss_coeff=gamma,
+                                vae_train_data=vae_train_scaled,
+                                vae_test_data=vae_test_scaled,
+                                vae_scaler=vae_scaler,
+                                vae_seed=vae_seed,
+                                file_type=file_type,
+                                panel=panel,
+                                freq=freq,
+                                csv_dir=dir
+                            )
+
+                            # Evaluate fitness for all 5 HIs and only for the test HI
+                            fitness_all = fitness(health_indicators[0])
+                            fitness_test = test_fitness(health_indicators[2], health_indicators[1])
+                            print("Fitness all", fitness_all)
+                            print("Fitness test", fitness_test)
+
+                            f_all_vals.append(fitness_all[0])
+                            f_test_vals.append(fitness_test[0])
+
+                        # Aggregate results over panels for this (alpha, beta, gamma, freq)
+                        mean_f_all = float(np.mean(f_all_vals))
+                        std_f_all = float(np.std(f_all_vals))
+                        mean_f_test = float(np.mean(f_test_vals))
+                        std_f_test = float(np.std(f_test_vals))
+
+                        row = {
+                            "file_type": file_type,
+                            "freq": freq,
+                            "alpha": alpha,
+                            "beta": beta,
+                            "gamma": gamma,
+                            "mean_fitness_all": mean_f_all,
+                            "std_fitness_all": std_f_all,
+                            "mean_fitness_test": mean_f_test,
+                            "std_fitness_test": std_f_test
+                        }
+
+                        # Append row to CSV (allows resume)
+                        pd.DataFrame([row]).to_csv(
+                            out_csv,
+                            mode="a",
+                            header=not os.path.exists(out_csv) or os.path.getsize(out_csv) == 0,
+                            index=False
+                        )
+
+                        completed.add(key)
+
+    print(f"Saved sensitivity results for {file_type} to {out_csv}")
+
+LOCK_PATH = os.path.join(os.path.dirname(__file__), ".vae_lock")
+vae_seed = 42
+csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
+
+def acquire_lock():
+    try:
+        # atomic create; fails if file exists
+        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        return False
+
+def release_lock():
+    try:
+        os.remove(LOCK_PATH)
+    except FileNotFoundError:
+        pass
+
+if __name__ == "__main__":
+    if not acquire_lock():
+        print("Another instance is running. Exiting.")
+        sys.exit(0)
+    try:
+        # your current entry point, e.g.:
+        VAE_sensitivity_analysis(csv_dir)
+    finally:
+        release_lock()
