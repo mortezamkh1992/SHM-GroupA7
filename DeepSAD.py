@@ -893,12 +893,12 @@ def DeepSAD_sensitivity_analysis(dir):
                "PZT-FFT-HLB-L1-23"]
 
     freqs = ("050_kHz", "100_kHz", "125_kHz", "150_kHz", "200_kHz", "250_kHz")
-    # freqs = ("050_kHz") # PABLO
-    # freqs = ("100_kHz") # JJ
-    # freqs = ("125_kHz") # GEORGE
-    # freqs = ("150_kHz") # CORNELIE
-    # freqs = ("200_kHz") # EDLYN
-    # freqs = ("250_kHz") # ??
+    # freqs = ("050_kHz",) # PABLO
+    # freqs = ("100_kHz",) # JJ
+    # freqs = ("125_kHz",) # GEORGE
+    # freqs = ("150_kHz",) # CORNELIE
+    # freqs = ("200_kHz",) # EDLYN
+    # freqs = ("250_kHz",) # ??
 
     file_names = ["FFT_FT_Reduced", "HLB_FT_Reduced"]
 
