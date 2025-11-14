@@ -1,6 +1,6 @@
 import os, sys, time, subprocess
 
-RUNTIME_LIMIT_SEC = 3*3600
+RUNTIME_LIMIT_SEC = 3600
 SLEEP_POLL_SEC = 5
 
 CWD = os.path.dirname(os.path.abspath(__file__))
