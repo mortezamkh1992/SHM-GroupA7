@@ -16,7 +16,6 @@ import random
 import ast
 from statistics import multimode
 import sys
-import subprocess
 
 def VAE_merge_data(train_filenames):
     """
@@ -1180,7 +1179,7 @@ def VAE_single_fold(n_calls_per_fold):
 def VAE_sensitivity_analysis(dir):
     """
     Run VAE hyperparameter sensitivity analysis for alpha, beta, gamma
-    across all frequencies and panels, using Option A (best per-frequency baseline).
+    across all frequencies and panels, using a best per-frequency baseline
 
     Parameters:
         - dir (str): Directory containing data

@@ -11,6 +11,10 @@ from skopt.space import Real, Integer
 from skopt.utils import use_named_args
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+import ast
+from statistics import multimode
+import sys
+import time
 
 from Prognostic_criteria import fitness, scale_exact, test_fitness
 from VAE import simple_store_hyperparameters
@@ -266,6 +270,8 @@ def train(model, train_loader, learning_rate, weight_decay, n_epochs, lr_milesto
     if model.c is None:
         model.c = init_c(model, train_loader, eps)
 
+    start_time = time.time()
+
     # Iterate epochs to train model
     model.train()
     for epoch in range(n_epochs):
@@ -311,6 +317,9 @@ def train(model, train_loader, learning_rate, weight_decay, n_epochs, lr_milesto
             epoch_loss += loss.item()
         scheduler.step()
 
+    total_time = time.time() - start_time
+    print(f"DeepSAD training time: {total_time:.2f} s for {n_epochs} epochs")
+
     return model, epoch_loss
 
 def AE_train(model, train_loader, learning_rate, weight_decay, n_epochs, lr_milestones, gamma):
@@ -335,6 +344,8 @@ def AE_train(model, train_loader, learning_rate, weight_decay, n_epochs, lr_mile
 
     # Set learning rate scheduler
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=lr_milestones, gamma=gamma)
+
+    start_time = time.time()
 
     model.train()
     for epoch in range(n_epochs):
@@ -361,6 +372,10 @@ def AE_train(model, train_loader, learning_rate, weight_decay, n_epochs, lr_mile
             scheduler.step()
 
             epoch_loss += loss.item()
+
+    total_time = time.time() - start_time
+    print(f"AE pretrain time: {total_time:.2f} s for {n_epochs} epochs")
+
     return model
 
 def pretrain(model, train_loader, learning_rate, weight_decay, n_epochs, lr_milestones, gamma):
@@ -838,9 +853,312 @@ def DeepSAD_HPC():
         save_evaluation(np.array(HIs[0]), "DeepSAD_FFT", csv_dir)
         save_evaluation(np.array(HIs[1]), "DeepSAD_HLB", csv_dir)
 
+def DeepSAD_sensitivity_analysis(dir):
+    """
+    Run DeepSAD hyperparameter sensitivity analysis for nu, eta, lambda
+    across all frequencies and panels, using a best per-frequency baseline
+
+    Parameters:
+        - dir (str): Directory containing data
+    Returns: None
+    """
+    global pass_dir
+    pass_dir = dir
+
+    global ds_seed
+    torch.manual_seed(ds_seed)
+    np.random.seed(ds_seed)
+
+    ### Hyperparamters ###
+    # Fixed/background
+    lr_milestones_AE = []  # [8]  # Milestones when learning rate reduces
+    lr_milestones = []  # [20, 40, 60, 80]
+    gamma = 0.1  # Factor to reduce LR by at milestones
+    gamma_AE = 0.1  # "
+    eps = 1 * 10 ** (-6)  # Very small number to prevent zero errors
+
+    # Additional (to do with labels, not in original model)
+    labelled_fraction = 0.25  # Labelled points from each end (so strictly < 0.5) | Don't include in HPO? Do not set below 0.1. Very little difference in results from 0.25 up to 0.5
+    # Keep well below 0.5 to maintain gap in the middle to enable us to use straight line labels
+    ignore = 0  # Number of timesteps from end to ignore - leave at 0, anything else was bad
+
+    nu_grid = [0.001, 0.01, 0.1, 1.0, 10.0]  # weight_decay
+    eta_grid = [0.001, 0.01, 0.1, 1.0, 10.0]  # eta
+    lam_grid = [0.001, 0.01, 0.1, 1.0, 10.0]  # reg
+
+    samples = ["PZT-FFT-HLB-L1-03",
+               "PZT-FFT-HLB-L1-04",
+               "PZT-FFT-HLB-L1-05",
+               "PZT-FFT-HLB-L1-09",
+               "PZT-FFT-HLB-L1-23"]
+
+    freqs = ("050_kHz", "100_kHz", "125_kHz", "150_kHz", "200_kHz", "250_kHz")
+    file_names = ["FFT_FT_Reduced", "HLB_FT_Reduced"]
+
+    for file_name in file_names:
+        print(f"Starting DeepSAD sensitivity analysis for {file_name}")
+
+        hp_path = os.path.join(dir, f"hyperparameters-opt-{file_name}.csv")
+        hyperparameters_df = pd.read_csv(hp_path, index_col=0)
+
+        out_csv = os.path.join(dir, f"deepsad_sensitivity_results_{file_name}.csv")
+
+        # Load already-completed combinations so we can resume
+        if os.path.exists(out_csv):
+            sens_df = pd.read_csv(out_csv)
+            completed = set(
+                (
+                    row["file_name"],
+                    row["freq"],
+                    round(row["nu"], 5),
+                    round(row["eta"], 5),
+                    round(row["lambda"], 5)
+                )
+                for _, row in sens_df.iterrows()
+            )
+        else:
+            completed = set()
+
+        # Determine per-frequency baseline for batch size, learning rates, epochs
+        freq_baselines = {}
+
+        for freq in freqs:
+            batch_list, lr_AE_list, lr_list, ep_AE_list, ep_list = [], [], [], [], []
+
+            for sample in samples:
+                cell = hyperparameters_df.loc[freq, sample]
+                params = eval(str(cell))
+
+                batch_list.append(int(params[0]))
+                lr_AE_list.append(float(params[1]))
+                lr_list.append(float(params[2]))
+                ep_AE_list.append(int(params[3]))
+                ep_list.append(int(params[4]))
+
+            def pick_int(values):
+                """
+                Select representative integer from list.
+
+                Parameters:
+                    - values (list): List of numeric values from different panels
+                Returns:
+                    - int: Mode if unique, otherwise median
+                """
+                modes = multimode(values)
+                if len(modes) == 1:
+                    return int(modes[0])
+                return int(np.median(values))
+
+            base_batch = pick_int(batch_list)
+            base_lr_AE = float(np.median(lr_AE_list))
+            base_lr = float(np.median(lr_list))
+            base_epochs_AE = int(np.max(ep_AE_list))
+            base_epochs = int(np.max(ep_list))
+
+            freq_baselines[freq] = (base_batch, base_lr_AE, base_lr, base_epochs_AE, base_epochs)
+
+            print(
+                f"Freq {freq}: baseline batch={base_batch}, lr_AE={base_lr_AE:.4g}, "
+                f"lr={base_lr:.4g}, epochs_AE={base_epochs_AE}, epochs={base_epochs}"
+            )
+
+        # Sensitivity loop over nu, eta, lambda
+        counter = 0
+        for freq, (base_batch, base_lr_AE, base_lr, base_epochs_AE, base_epochs) in freq_baselines.items():
+            # Convert "050_kHz" -> "050" to build filenames
+            freq_digits = freq.split("_")[0]
+
+            for nu in nu_grid:
+                for eta_val in eta_grid:
+                    for lam in lam_grid:
+
+                        key = (file_name, freq, round(nu, 5), round(eta_val, 5), round(lam, 5))
+                        if key in completed:
+                            print(
+                                f"Skipping already completed nu={nu}, eta={eta_val}, lambda={lam} for {file_name} {freq}"
+                            )
+                            continue
+
+                        print(f"{file_name} {freq} nu={nu} eta={eta_val} lambda={lam}")
+
+                        f_all_vals = []
+                        f_test_vals = []
+
+                        file_name_with_freq = freq_digits + "kHz_" + file_name + ".csv"
+
+                        # Loop over all samples as test sample
+                        for sample_idx in range(len(samples)):
+                            test_sample = samples[sample_idx]
+
+                            counter += 1
+                            print("Counter:", counter)
+                            print("Test sample:", test_sample)
+                            print("Freq:", freq)
+                            print("Features:", file_name)
+
+                            # Build training-set sample list (all except test_sample)
+                            temp_samples = copy.deepcopy(samples)
+                            temp_samples.remove(test_sample)
+
+                            first = True
+                            # Collect training data over all training samples
+                            for train_sample in temp_samples:
+                                temp_data, temp_targets = load_data(
+                                    os.path.join(dir, train_sample),
+                                    file_name_with_freq,
+                                    labelled_fraction,
+                                    ignore
+                                )
+
+                                if first:
+                                    arr_data = copy.deepcopy(temp_data)
+                                    arr_targets = copy.deepcopy(temp_targets)
+                                    first = False
+                                else:
+                                    arr_data = np.concatenate((arr_data, temp_data))
+                                    arr_targets = np.concatenate((arr_targets, temp_targets))
+
+                            # Normalise training data
+                            normal_mn = np.mean(arr_data, axis=0)
+                            normal_sd = np.std(arr_data, axis=0)
+                            arr_data_norm = (arr_data - normal_mn) / normal_sd
+
+                            # Convert to tensors
+                            train_data = torch.tensor(arr_data_norm)
+                            semi_targets = torch.tensor(arr_targets)
+
+                            size = [train_data.shape[1], train_data.shape[2]]
+                            train_dataset = TensorDataset(train_data, semi_targets)
+                            train_loader = DataLoader(train_dataset, batch_size=int(base_batch), shuffle=True)
+
+                            # Create, pretrain and train model with current (nu, eta, lambda)
+                            model = NeuralNet(size)
+                            model = pretrain(
+                                model,
+                                train_loader,
+                                base_lr_AE,
+                                weight_decay=nu,  # use nu for AE L2 as well
+                                n_epochs=base_epochs_AE,
+                                lr_milestones=lr_milestones_AE,
+                                gamma=gamma_AE
+                            )
+                            model, loss = train(
+                                model,
+                                train_loader,
+                                base_lr,
+                                weight_decay=nu,
+                                n_epochs=base_epochs,
+                                lr_milestones=lr_milestones,
+                                gamma=gamma,
+                                eta=eta_val,
+                                eps=eps,
+                                reg=lam
+                            )
+
+                            # Test on all samples, compute HIs
+                            hi_list = []
+                            for eval_sample in samples:
+                                test_data, _ = load_data(
+                                    os.path.join(dir, eval_sample),
+                                    file_name_with_freq,
+                                    labelled_fraction,
+                                    ignore
+                                )
+                                test_data = (test_data - normal_mn) / normal_sd
+
+                                current_result = []
+                                for state in range(test_data.shape[0]):
+                                    data = test_data[state]
+                                    current_result.append(embed(data, model).item())
+
+                                hi_list.append(scale_exact(np.array(current_result), 30 - ignore))
+
+                            hi_list = np.array(hi_list)
+
+                            # Scale so on average starts at 0 and ends at 1, excluding test sample
+                            av_start = np.mean(
+                                np.concatenate((hi_list[:sample_idx, 0], hi_list[sample_idx + 1:, 0]))
+                            )
+                            hi_list = hi_list - av_start
+                            av_end = np.mean(
+                                np.concatenate((hi_list[:sample_idx, -1], hi_list[sample_idx + 1:, -1]))
+                            )
+                            hi_list = hi_list / av_end
+
+                            ftn = fitness(hi_list)
+                            testftn = test_fitness(
+                                hi_list[sample_idx],
+                                np.concatenate((hi_list[:sample_idx], hi_list[sample_idx + 1:]))
+                            )
+
+                            print("F-test:", testftn[0], "| Mo:", testftn[1], "| Tr:", testftn[2], "| Pr:",
+                                  testftn[3])
+                            print("F-all:", ftn[0], "| Mo:", ftn[1], "| Tr:", ftn[2], "| Pr:", ftn[3])
+
+                            f_all_vals.append(ftn[0])
+                            f_test_vals.append(testftn[0])
+
+                        # Aggregate over all test samples for this (nu, eta, lambda, freq)
+                        mean_f_all = float(np.mean(f_all_vals))
+                        std_f_all = float(np.std(f_all_vals))
+                        mean_f_test = float(np.mean(f_test_vals))
+                        std_f_test = float(np.std(f_test_vals))
+
+                        row = {
+                            "file_name": file_name,
+                            "freq": freq,
+                            "nu": nu,
+                            "eta": eta_val,
+                            "lambda": lam,
+                            "mean_fitness_all": mean_f_all,
+                            "std_fitness_all": std_f_all,
+                            "mean_fitness_test": mean_f_test,
+                            "std_fitness_test": std_f_test
+                        }
+
+                        pd.DataFrame([row]).to_csv(
+                            out_csv,
+                            mode="a",
+                            header=not os.path.exists(out_csv) or os.path.getsize(out_csv) == 0,
+                            index=False
+                        )
+
+                        completed.add(key)
+
+    print("DeepSAD sensitivity analysis finished.")
 
 #for repeats in [42, 52, 62, 72, 82]:
 #for repeats in [42]:
 #    global ds_seed
 #    ds_seed = repeats
 #    DeepSAD_HPC()
+
+LOCK_PATH = os.path.join(os.path.dirname(__file__), ".deepsad_lock")
+ds_seed = 42
+csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
+
+def acquire_lock():
+    try:
+        # atomic create; fails if file exists
+        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+        os.write(fd, str(os.getpid()).encode())
+        os.close(fd)
+        return True
+    except FileExistsError:
+        return False
+
+def release_lock():
+    try:
+        os.remove(LOCK_PATH)
+    except FileNotFoundError:
+        pass
+
+if __name__ == "__main__":
+    if not acquire_lock():
+        print("Another instance is running. Exiting.")
+        sys.exit(0)
+    try:
+        # your current entry point, e.g.:
+        DeepSAD_sensitivity_analysis(csv_dir)
+    finally:
+        release_lock()
