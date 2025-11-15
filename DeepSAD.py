@@ -990,6 +990,7 @@ def DeepSAD_sensitivity_analysis(dir):
 
                         f_all_vals = []
                         f_test_vals = []
+                        bad_combo = False
 
                         file_name_with_freq = freq_digits + "kHz_" + file_name + ".csv"
 
@@ -1090,6 +1091,13 @@ def DeepSAD_sensitivity_analysis(dir):
                             av_end = np.mean(
                                 np.concatenate((hi_list[:sample_idx, -1], hi_list[sample_idx + 1:, -1]))
                             )
+
+                            if (not np.isfinite(av_end)) or (abs(av_end) < 1e-8):
+                                print(
+                                    "av_end is zero or non-finite for this test sample – skipping this (nu, eta, lambda) combo.")
+                                bad_combo = True
+                                break
+
                             hi_list = hi_list / av_end
 
                             ftn = fitness(hi_list)
@@ -1105,23 +1113,36 @@ def DeepSAD_sensitivity_analysis(dir):
                             f_all_vals.append(ftn[0])
                             f_test_vals.append(testftn[0])
 
-                        # Aggregate over all test samples for this (nu, eta, lambda, freq)
-                        mean_f_all = float(np.mean(f_all_vals))
-                        std_f_all = float(np.std(f_all_vals))
-                        mean_f_test = float(np.mean(f_test_vals))
-                        std_f_test = float(np.std(f_test_vals))
+                        if bad_combo:
+                            row = {
+                                "file_name": file_name,
+                                "freq": freq,
+                                "nu": nu,
+                                "eta": eta_val,
+                                "lambda": lam,
+                                "mean_fitness_all": "BAD_COMBO",
+                                "std_fitness_all": "BAD_COMBO",
+                                "mean_fitness_test": "BAD_COMBO",
+                                "std_fitness_test": "BAD_COMBO"
+                            }
+                        else:
+                            # Aggregate over all test samples for this (nu, eta, lambda, freq)
+                            mean_f_all = float(np.mean(f_all_vals))
+                            std_f_all = float(np.std(f_all_vals))
+                            mean_f_test = float(np.mean(f_test_vals))
+                            std_f_test = float(np.std(f_test_vals))
 
-                        row = {
-                            "file_name": file_name,
-                            "freq": freq,
-                            "nu": nu,
-                            "eta": eta_val,
-                            "lambda": lam,
-                            "mean_fitness_all": mean_f_all,
-                            "std_fitness_all": std_f_all,
-                            "mean_fitness_test": mean_f_test,
-                            "std_fitness_test": std_f_test
-                        }
+                            row = {
+                                "file_name": file_name,
+                                "freq": freq,
+                                "nu": nu,
+                                "eta": eta_val,
+                                "lambda": lam,
+                                "mean_fitness_all": mean_f_all,
+                                "std_fitness_all": std_f_all,
+                                "mean_fitness_test": mean_f_test,
+                                "std_fitness_test": std_f_test
+                            }
 
                         pd.DataFrame([row]).to_csv(
                             out_csv,
