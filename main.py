@@ -532,26 +532,26 @@ def aggregate_all_sensitivities(dir):
         # VAE
         (
             "VAE_sensitivity_results_FFT_FT_Reduced.csv",
-            "VAE_sensitivity_results_FFT_FT_Reduced_avgFreq.csv",
+            "VAE_sensitivity_averaged_FFT_FT_Reduced.csv",
             "file_type",
             ["alpha", "beta", "gamma"],
         ),
         (
             "VAE_sensitivity_results_HLB_FT_Reduced.csv",
-            "VAE_sensitivity_results_HLB_FT_Reduced_avgFreq.csv",
+            "VAE_sensitivity_averaged_HLB_FT_Reduced.csv",
             "file_type",
             ["alpha", "beta", "gamma"],
         ),
         # DeepSAD
         (
             "deepsad_sensitivity_results_FFT_FT_Reduced.csv",
-            "deepsad_sensitivity_results_FFT_FT_Reduced_avgFreq.csv",
+            "deepsad_sensitivity_averaged_FFT_FT_Reduced.csv",
             "file_name",
             ["nu", "eta", "lambda"],
         ),
         (
             "deepsad_sensitivity_results_HLB_FT_Reduced.csv",
-            "deepsad_sensitivity_results_HLB_FT_Reduced_avgFreq.csv",
+            "deepsad_sensitivity_averaged_HLB_FT_Reduced.csv",
             "file_name",
             ["nu", "eta", "lambda"],
         ),
