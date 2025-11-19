@@ -1209,7 +1209,7 @@ def VAE_sensitivity_analysis(dir):
         hp_path = os.path.join(dir, f"hyperparameters-opt-{file_type}.csv")
         hp_df = pd.read_csv(hp_path, index_col=0)
 
-        out_csv = os.path.join(dir, f"sensitivity_results_{file_type}.csv")
+        out_csv = os.path.join(dir, f"VAE_sensitivity_results_{file_type}.csv")
 
         # Find which sensitivity combinations have been completed already
         if os.path.exists(out_csv):
@@ -1381,32 +1381,5 @@ def VAE_sensitivity_analysis(dir):
 
     print(f"Saved sensitivity results for {file_type} to {out_csv}")
 
-LOCK_PATH = os.path.join(os.path.dirname(__file__), ".vae_lock")
 vae_seed = 42
-csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
-
-def acquire_lock():
-    try:
-        # atomic create; fails if file exists
-        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        os.write(fd, str(os.getpid()).encode())
-        os.close(fd)
-        return True
-    except FileExistsError:
-        return False
-
-def release_lock():
-    try:
-        os.remove(LOCK_PATH)
-    except FileNotFoundError:
-        pass
-
-if __name__ == "__main__":
-    if not acquire_lock():
-        print("Another instance is running. Exiting.")
-        sys.exit(0)
-    try:
-        # your current entry point, e.g.:
-        VAE_sensitivity_analysis(csv_dir)
-    finally:
-        release_lock()
+#csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"

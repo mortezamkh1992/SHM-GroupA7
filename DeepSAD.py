@@ -893,12 +893,6 @@ def DeepSAD_sensitivity_analysis(dir):
                "PZT-FFT-HLB-L1-23"]
 
     freqs = ("050_kHz", "100_kHz", "125_kHz", "150_kHz", "200_kHz", "250_kHz")
-    # freqs = ("050_kHz",) # PABLO
-    # freqs = ("100_kHz",) # JJ
-    # freqs = ("125_kHz",) # GEORGE
-    # freqs = ("150_kHz",) # CORNELIE
-    # freqs = ("200_kHz",) # EDLYN
-    # freqs = ("250_kHz",) # ??
 
     file_names = ["FFT_FT_Reduced", "HLB_FT_Reduced"]
 
@@ -1161,32 +1155,5 @@ def DeepSAD_sensitivity_analysis(dir):
 #    ds_seed = repeats
 #    DeepSAD_HPC()
 
-LOCK_PATH = os.path.join(os.path.dirname(__file__), ".deepsad_lock")
 ds_seed = 42
-csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
-
-def acquire_lock():
-    try:
-        # atomic create; fails if file exists
-        fd = os.open(LOCK_PATH, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-        os.write(fd, str(os.getpid()).encode())
-        os.close(fd)
-        return True
-    except FileExistsError:
-        return False
-
-def release_lock():
-    try:
-        os.remove(LOCK_PATH)
-    except FileNotFoundError:
-        pass
-
-if __name__ == "__main__":
-    if not acquire_lock():
-        print("Another instance is running. Exiting.")
-        sys.exit(0)
-    try:
-        # your current entry point, e.g.:
-        DeepSAD_sensitivity_analysis(csv_dir)
-    finally:
-        release_lock()
+# csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"

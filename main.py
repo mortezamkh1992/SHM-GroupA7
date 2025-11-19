@@ -7,8 +7,9 @@ import os
 # Import modules
 from Signal_Processing import Transforms as SP
 from Prognostic_criteria import fitness, scale_exact
-from DeepSAD import DeepSAD_train_run
-from VAE import VAE_optimize_hyperparameters, VAE_train_run, VAE_process_csv_files, simple_store_hyperparameters
+from DeepSAD import DeepSAD_train_run, DeepSAD_sensitivity_analysis
+from VAE import VAE_optimize_hyperparameters, VAE_train_run, VAE_process_csv_files, simple_store_hyperparameters, \
+    VAE_sensitivity_analysis
 from WAE import eval_wae
 import Graphs
 import Extract_features
@@ -420,6 +421,37 @@ def saveVAE(dir):
     # Generate HIs for all folds, save and plot
     VAE_train_run(dir)
 
+def saveVAE_sensitivity(dir):
+    """
+        Run and save VAE sensitivity analysis
+
+        Parameters:
+        - dir (str): CSV root folder directory
+        Returns: None
+    """
+
+    # Connect global variable for seed
+    global vae_seed
+
+    # Generate sensitivity analysis
+    VAE_sensitivity_analysis(dir)
+
+
+def saveDeepSAD_sensitivity(dir):
+    """
+        Run and save DeepSAD sensitivity analysis
+
+        Parameters:
+        - dir (str): CSV root folder directory
+        Returns: None
+    """
+
+    # Connect global variable for seed
+    global ds_seed
+
+    # Generate sensitivity analysis
+    DeepSAD_sensitivity_analysis(dir)
+
 def main_menu():
     """
         Print options in main menu
@@ -448,6 +480,8 @@ def main_menu():
     print("Steps 6-9 must be carried out for different random seeds")
     print("")
     print("10. Execute WAE")
+    print("11. Execute VAE sensitivity analysis")
+    print("12. Execute DeepSAD sensitivity analysis")
 
 
 def extract_matlab():
@@ -532,6 +566,12 @@ while True:
     elif choice == '10':
         eval_wae(csv_dir, "DeepSAD", "FFT")
         eval_wae(csv_dir, "DeepSAD", "HLB")
+
+    elif choice == '11':
+        saveVAE_sensitivity(dir)
+
+    elif choice == '12':
+        saveDeepSAD_sensitivity(dir)
 
     # In case of invalid input
     else:
