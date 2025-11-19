@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import tensorflow as tf
 import os
+import math
 
 # Import modules
 from Signal_Processing import Transforms as SP
@@ -452,6 +453,124 @@ def saveDeepSAD_sensitivity(dir):
     # Generate sensitivity analysis
     DeepSAD_sensitivity_analysis(dir)
 
+def aggregate_over_freq(df, id_col, hyper_cols):
+    """
+        Aggregate sensitivity results over frequencies for each hyperparameter triple.
+
+        Parameters:
+        - df (pd.DataFrame): Original sensitivity results with one row per (freq, hyperparameters).
+        - id_col (str): Column identifying the model/feature type
+        - hyper_cols (list): Names of the 3 hyperparameter columns
+
+        Returns:
+        - agg_df (pd.DataFrame): One row per (id_col, hyperparameters) with metrics pooled over frequencies.
+    """
+
+    df = df.copy()
+
+    metric_cols = [
+        "mean_fitness_all",
+        "std_fitness_all",
+        "mean_fitness_test",
+        "std_fitness_test",
+    ]
+
+    # Coerce metrics to numeric, BAD COMBO or other strings become NaN
+    for c in metric_cols:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+
+    rows = []
+    group_cols = [id_col] + hyper_cols
+
+    for key, g in df.groupby(group_cols):
+        # Drop rows where means are NaN (e.g. BAD COMBO)
+        g = g.dropna(subset=["mean_fitness_all", "mean_fitness_test"])
+        if g.empty:
+            continue
+
+        # Mean of the per-frequency means
+        mu_all = g["mean_fitness_all"].mean()
+        mu_test = g["mean_fitness_test"].mean()
+
+        # Pooled std assuming each row's std is a population std over same number of samples:
+        # σ_total^2 = mean(σ_i^2 + μ_i^2) - μ_total^2
+        var_all = ( (g["std_fitness_all"]**2 + g["mean_fitness_all"]**2).mean()
+                    - mu_all**2 )
+        var_test = ( (g["std_fitness_test"]**2 + g["mean_fitness_test"]**2).mean()
+                     - mu_test**2 )
+
+        std_all = math.sqrt(var_all) if var_all >= 0 else float("nan")
+        std_test = math.sqrt(var_test) if var_test >= 0 else float("nan")
+
+        row = {
+            id_col: key[0],
+            hyper_cols[0]: key[1],
+            hyper_cols[1]: key[2],
+            hyper_cols[2]: key[3],
+            "mean_fitness_all": mu_all,
+            "std_fitness_all": std_all,
+            "mean_fitness_test": mu_test,
+            "std_fitness_test": std_test,
+            # sanity checks
+            "n_freqs": len(g["freq"].unique()) if "freq" in g.columns else len(g),
+        }
+        rows.append(row)
+
+    return pd.DataFrame(rows)
+
+def aggregate_all_sensitivities(dir):
+    """
+        Read the sensitivity CSVs, aggregate over frequencies, and write 4 new CSVs with
+        frequency-averaged results.
+
+        Parameters:
+        - dir (str): Sensitivity CSV root folder directory
+
+        Returns: None
+    """
+    configs = [
+        # VAE
+        (
+            "VAE_sensitivity_results_FFT_FT_Reduced.csv",
+            "VAE_sensitivity_results_FFT_FT_Reduced_avgFreq.csv",
+            "file_type",
+            ["alpha", "beta", "gamma"],
+        ),
+        (
+            "VAE_sensitivity_results_HLB_FT_Reduced.csv",
+            "VAE_sensitivity_results_HLB_FT_Reduced_avgFreq.csv",
+            "file_type",
+            ["alpha", "beta", "gamma"],
+        ),
+        # DeepSAD
+        (
+            "deepsad_sensitivity_results_FFT_FT_Reduced.csv",
+            "deepsad_sensitivity_results_FFT_FT_Reduced_avgFreq.csv",
+            "file_name",
+            ["nu", "eta", "lambda"],
+        ),
+        (
+            "deepsad_sensitivity_results_HLB_FT_Reduced.csv",
+            "deepsad_sensitivity_results_HLB_FT_Reduced_avgFreq.csv",
+            "file_name",
+            ["nu", "eta", "lambda"],
+        ),
+    ]
+
+    for in_name, out_name, id_col, hyper_cols in configs:
+        in_path = os.path.join(csv_dir, in_name)
+        if not os.path.exists(in_path):
+            print(f"Skipping {in_path} (not found).")
+            continue
+
+        print(f"Aggregating {in_name} ...")
+        df = pd.read_csv(in_path)
+        agg_df = aggregate_over_freq(df, id_col=id_col, hyper_cols=hyper_cols)
+
+        out_path = os.path.join(csv_dir, out_name)
+        agg_df.to_csv(out_path, index=False)
+        print(f" -> saved {out_name} with {len(agg_df)} rows.")
+
 def main_menu():
     """
         Print options in main menu
@@ -482,6 +601,7 @@ def main_menu():
     print("10. Execute WAE")
     print("11. Execute VAE sensitivity analysis")
     print("12. Execute DeepSAD sensitivity analysis")
+    print("13. Average sensitivity analysis over frequencies")
 
 
 def extract_matlab():
@@ -573,7 +693,9 @@ while True:
     elif choice == '12':
         saveDeepSAD_sensitivity(dir)
 
+    elif choice == '13':
+        aggregate_all_sensitivities(dir)
+
     # In case of invalid input
     else:
         print("Invalid choice. Please select a valid option.")
-
