@@ -197,6 +197,7 @@ def plot_sensitivity_single_vae(csv_path, out_path):
         ax.invert_xaxis()
 
         ax.set_zlim(zmin, zmax)
+        ax.zaxis.set_major_locator(plt.MaxNLocator(5))
 
         if i == 1:
             ax.legend([wire, surf], ["F_all", "F_test"], loc="upper left")
