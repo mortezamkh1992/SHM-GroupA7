@@ -3,6 +3,11 @@ import numpy as np
 import os
 import matplotlib.image as mpimg
 from matplotlib.lines import Line2D
+import pandas as pd
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
+from matplotlib.colors import Normalize
+from matplotlib.lines import Line2D
+from matplotlib.patches import Patch
 
 def HI_graph(X, dir="", name="", legend=True):
     #Graph of HI against cycles
@@ -132,3 +137,216 @@ def big_plot(dir, type, transform):
 
     plt.savefig(os.path.join(dir, f"BigPlot_{type}_{transform}.pdf"))
     plt.savefig(os.path.join(dir, f"BigPlot_{type}_{transform}.png"))
+
+def plot_sensitivity_single_vae(csv_path, out_path):
+    """
+        Plot VAE sensitivity surfaces. For each gamma, we plot a 3D surface for F_test and a wireframe for F_all.
+
+        Parameters:
+        - csv_path (str): Directory containing sensitivity analysis data
+        - out_path (str): Directory of output file
+
+        Returns: None
+    """
+
+    df = pd.read_csv(csv_path)
+
+    for col in ["mean_fitness_all", "mean_fitness_test"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["mean_fitness_all", "mean_fitness_test"])
+
+    gammas = sorted(df["gamma"].unique())
+
+    zmin, zmax = 1.00, 2.60
+
+    cmin, cmax = 1.0, 2.10
+    norm = Normalize(vmin=cmin, vmax=cmax)
+
+    fig = plt.figure(figsize=(4 * len(gammas), 3.5))
+
+    last_surf = None
+
+    for i, g in enumerate(gammas, start=1):
+        sub = df[np.isclose(df["gamma"], g)]
+
+        alphas = np.sort(sub["alpha"].unique())
+        betas  = np.sort(sub["beta"].unique())
+
+        Z_all = sub.pivot_table(index="beta", columns="alpha",
+                                values="mean_fitness_all").reindex(
+                                    index=betas, columns=alphas).values
+        Z_test = sub.pivot_table(index="beta", columns="alpha",
+                                 values="mean_fitness_test").reindex(
+                                     index=betas, columns=alphas).values
+
+        X, Y = np.meshgrid(alphas, betas)
+
+        ax = fig.add_subplot(1, len(gammas), i, projection='3d')
+
+        surf = ax.plot_surface(X, Y, Z_test, cmap="plasma", norm=norm, alpha=0.95)
+        wire = ax.plot_wireframe(X, Y, Z_all, color="black", linewidth=1.0)
+
+        last_surf = surf
+
+        ax.set_title(f"γ = {g}")
+        ax.set_xlabel("α")
+        ax.set_ylabel("β")
+        ax.set_zlabel("Fitness", labelpad=8)
+        ax.view_init(elev=30, azim=45)
+        ax.invert_yaxis()
+        ax.invert_xaxis()
+
+        ax.set_zlim(zmin, zmax)
+
+        if i == 1:
+            ax.legend([wire, surf], ["F_all", "F_test"], loc="upper left")
+
+    if last_surf is not None:
+        cax = fig.add_axes([0.92, 0.20, 0.015, 0.65])
+        fig.colorbar(last_surf, cax=cax, label="F_test")
+
+    plt.tight_layout(rect=[0, 0, 0.90, 1])
+    plt.savefig(out_path.replace(".png", ".pdf"),
+                dpi=300,
+                bbox_inches="tight",
+                format="pdf")
+    plt.close(fig)
+
+def plot_vae_sensitivity(csv_path):
+    """
+        Plot VAE sensitivity figures for both FFT and HLB VAE sensitivity CSVs.
+
+        Parameters:
+        - csv_path (str): Directory containing sensitivity analysis data
+
+        Returns: None
+    """
+
+    files = [
+        ("fft",
+         os.path.join(csv_path,
+                      "VAE_sensitivity_averaged_FFT_FT_Reduced.csv")),
+        ("hlb",
+         os.path.join(csv_path,
+                      "VAE_sensitivity_averaged_HLB_FT_Reduced.csv")),
+    ]
+
+    for label, dir_path in files:
+        out_path = os.path.join(csv_path, f"VAE_sensitivity_{label}.png")
+        plot_sensitivity_single_vae(dir_path, out_path)
+
+def plot_sensitivity_single_deepsad(csv_path, out_path):
+    """
+        Plot DeepSAD sensitivity surfaces. For each lambda, plot a 3D surface for F_test and a wireframe for F_all.
+
+        Parameters:
+        - csv_path (str): Directory containing sensitivity analysis data
+        - out_path (str): Directory of output file
+
+        Returns: None
+    """
+
+    df = pd.read_csv(csv_path)
+
+    for col in ["mean_fitness_all", "mean_fitness_test"]:
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    df = df.dropna(subset=["mean_fitness_all", "mean_fitness_test"])
+
+    df["log_nu"] = np.log10(df["nu"])
+    df["log_eta"] = np.log10(df["eta"])
+
+    lambdas = sorted(df["lambda"].unique())
+
+    zmin, zmax = 1.00, 2.60
+    cmin, cmax = 1.00, 2.10
+    norm = Normalize(vmin=cmin, vmax=cmax)
+
+    fig = plt.figure(figsize=(4 * len(lambdas), 3.5))
+
+    last_surf = None
+
+    for i, lam in enumerate(lambdas, start=1):
+        sub = df[np.isclose(df["lambda"], lam)]
+        if sub.empty:
+            continue
+
+        nus = np.sort(sub["log_nu"].unique())
+        etas = np.sort(sub["log_eta"].unique())
+
+        Z_all = sub.pivot_table(index="log_eta", columns="log_nu",
+                                values="mean_fitness_all").reindex(
+                                    index=etas, columns=nus).values
+        Z_test = sub.pivot_table(index="log_eta", columns="log_nu",
+                                 values="mean_fitness_test").reindex(
+                                     index=etas, columns=nus).values
+
+        X, Y = np.meshgrid(nus, etas)
+
+        ax = fig.add_subplot(1, len(lambdas), i, projection='3d')
+
+        surf = ax.plot_surface(X, Y, Z_test, cmap="plasma", norm=norm, alpha=0.95)
+        wire = ax.plot_wireframe(X, Y, Z_all, color="black", linewidth=1.0)
+
+        last_surf = surf
+
+        ax.set_title(f"λ = {lam}")
+        ax.set_xlabel(r"$\log_{10}(\nu)$")
+        ax.set_ylabel(r"$\log_{10}(\eta)$")
+        ax.set_zlabel("Fitness", labelpad=8)
+        ax.view_init(elev=30, azim=45)
+
+        ax.set_zlim(zmin, zmax)
+
+        ax.set_xticks([-3, -2, -1, 0, 1])
+        ax.set_xticklabels(["0.001", "0.01", "0.1", "1", "10"])
+        ax.set_yticks([-3, -2, -1, 0, 1])
+        ax.set_yticklabels(["0.001", "0.01", "0.1", "1", "10"])
+        ax.invert_yaxis()
+        ax.invert_xaxis()
+
+        ax.zaxis.set_major_locator(plt.MaxNLocator(5))
+
+        if i == 1:
+            legend_handles = [
+                Line2D([0], [0], color="black", linewidth=2),
+                Patch(facecolor="orange", edgecolor="none")
+            ]
+            legend_labels = ["F_all", "F_test"]
+            ax.legend(legend_handles, legend_labels, loc="upper left")
+
+    if last_surf is not None:
+        cax = fig.add_axes([0.92, 0.20, 0.015, 0.65])
+        fig.colorbar(last_surf, cax=cax, label="F_test")
+
+    plt.tight_layout(rect=[0, 0, 0.90, 1])
+    plt.savefig(out_path.replace(".png", ".pdf"),
+                dpi=300,
+                bbox_inches="tight",
+                format="pdf")
+    plt.close(fig)
+
+def plot_deepsad_sensitivity(csv_path):
+    """
+        Plot DeepSAD sensitivity figures for both FFT and HLB DeepSAD sensitivity CSVs.
+
+        Parameters:
+        - csv_path (str): Directory containing sensitivity analysis data
+
+        Returns: None
+    """
+
+    files = [
+        ("fft",
+         os.path.join(csv_path,
+                      "deepsad_sensitivity_averaged_FFT_FT_Reduced.csv")),
+        ("hlb",
+         os.path.join(csv_path,
+                      "deepsad_sensitivity_averaged_HLB_FT_Reduced.csv")),
+    ]
+
+    for label, dir_path in files:
+        out_path = os.path.join(csv_path, f"DeepSAD_sensitivity_{label}.png")
+        plot_sensitivity_single_deepsad(dir_path, out_path)
+
+plot_vae_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
+plot_deepsad_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")

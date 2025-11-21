@@ -422,12 +422,12 @@ def saveVAE(dir):
     # Generate HIs for all folds, save and plot
     VAE_train_run(dir)
 
-def saveVAE_sensitivity(dir):
+def saveVAE_sensitivity(csv_dir):
     """
         Run and save VAE sensitivity analysis
 
         Parameters:
-        - dir (str): CSV root folder directory
+        - csv_dir (str): CSV root folder directory
         Returns: None
     """
 
@@ -435,15 +435,15 @@ def saveVAE_sensitivity(dir):
     global vae_seed
 
     # Generate sensitivity analysis
-    VAE_sensitivity_analysis(dir)
+    VAE_sensitivity_analysis(csv_dir)
 
 
-def saveDeepSAD_sensitivity(dir):
+def saveDeepSAD_sensitivity(csv_dir):
     """
         Run and save DeepSAD sensitivity analysis
 
         Parameters:
-        - dir (str): CSV root folder directory
+        - csv_dir (str): CSV root folder directory
         Returns: None
     """
 
@@ -451,7 +451,7 @@ def saveDeepSAD_sensitivity(dir):
     global ds_seed
 
     # Generate sensitivity analysis
-    DeepSAD_sensitivity_analysis(dir)
+    DeepSAD_sensitivity_analysis(csv_dir)
 
 def aggregate_over_freq(df, id_col, hyper_cols):
     """
@@ -518,13 +518,13 @@ def aggregate_over_freq(df, id_col, hyper_cols):
 
     return pd.DataFrame(rows)
 
-def aggregate_all_sensitivities(dir):
+def aggregate_all_sensitivities(csv_dir):
     """
         Read the sensitivity CSVs, aggregate over frequencies, and write 4 new CSVs with
         frequency-averaged results.
 
         Parameters:
-        - dir (str): Sensitivity CSV root folder directory
+        - csv_dir (str): Sensitivity CSV root folder directory
 
         Returns: None
     """
@@ -571,6 +571,19 @@ def aggregate_all_sensitivities(dir):
         agg_df.to_csv(out_path, index=False)
         print(f" -> saved {out_name} with {len(agg_df)} rows.")
 
+def plot_sensitivities(csv_dir):
+    """
+        Plot the sensitivity analysis for both DeepSAD and VAE.
+
+        Parameters:
+        - csv_dir (str): Sensitivity CSV root folder directory
+
+        Returns: None
+    """
+
+    Graphs.plot_vae_sensitivity(csv_dir)
+    Graphs.plot_deepsad_sensitivity(csv_dir)
+
 def main_menu():
     """
         Print options in main menu
@@ -602,6 +615,7 @@ def main_menu():
     print("11. Execute VAE sensitivity analysis")
     print("12. Execute DeepSAD sensitivity analysis")
     print("13. Average sensitivity analysis over frequencies")
+    print("14. Plot sensitivity analysis")
 
 
 def extract_matlab():
@@ -688,13 +702,16 @@ while True:
         eval_wae(csv_dir, "DeepSAD", "HLB")
 
     elif choice == '11':
-        saveVAE_sensitivity(dir)
+        saveVAE_sensitivity(csv_dir)
 
     elif choice == '12':
-        saveDeepSAD_sensitivity(dir)
+        saveDeepSAD_sensitivity(csv_dir)
 
     elif choice == '13':
-        aggregate_all_sensitivities(dir)
+        aggregate_all_sensitivities(csv_dir)
+
+    elif choice == '14':
+        plot_sensitivities(csv_dir)
 
     # In case of invalid input
     else:
