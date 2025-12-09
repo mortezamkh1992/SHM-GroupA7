@@ -17,6 +17,11 @@ import ast
 from statistics import multimode
 import sys
 
+TRAIN_TIMES = []
+INFER_TIMES = []
+PARAM_COUNTS = []
+MODEL_SIZES_MB = []
+
 def VAE_merge_data(train_filenames):
     """
     Merge train data
@@ -225,6 +230,8 @@ def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_
         - ordered_z_all (np.ndarray): Same as z_all, but in order of samples: (L103, L104, L105, L109, L123)
         - ordered_std_dev_all (np.ndarray): Same as std_dev_all, but in order of samples: (L103, L104, L105, L109, L123)
     """
+    tf.compat.v1.reset_default_graph()
+
     # Initialize number of features, size of bottleneck and epoch display number
     n_input = vae_train_data.shape[1]
     hidden_2 = 1
@@ -328,6 +335,13 @@ def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_
     sess = tf.compat.v1.Session()
     sess.run(tf.compat.v1.global_variables_initializer())
 
+    trainable_vars = tf.compat.v1.trainable_variables()
+    total_params = np.sum([np.prod(v.get_shape().as_list()) for v in trainable_vars])
+    size_bytes = total_params * 4  # 32-bit floats
+    size_mb = size_bytes / (1024 ** 2)
+    print("VAE params:", total_params)
+    print("VAE model size (MB):", size_mb)
+
     print('Start training!!!')
 
     # Calculate the number of batches, raise an error if batch_size > train data size
@@ -353,9 +367,29 @@ def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_
 
     # Stop measuring train time, and output train time
     end_time = time()
-    print(f"Training time: {end_time - begin_time:.2f} seconds")
+    train_time = end_time - begin_time
+    print(f"Training time: {train_time:.2f} seconds")
 
-    # Run session to compute bottleneck values, this time using test data as input for the placeholder
+    # -------------------------------------------------
+    # Inference time for test panel (HI generation)
+    # -------------------------------------------------
+    n_reps = 50  # repeat to get a stable average
+    start_inf = time()
+    for _ in range(n_reps):
+        _ = sess.run([std_dev, z], feed_dict={x: vae_test_data})
+    end_inf = time()
+    inf_time = (end_inf - start_inf) / n_reps
+    print(f"Mean inference time per test specimen: {inf_time * 1000:.2f} ms")
+    # -------------------------------------------------
+
+    # Store stats globally so we can aggregate later
+    global TRAIN_TIMES, INFER_TIMES, PARAM_COUNTS, MODEL_SIZES_MB
+    TRAIN_TIMES.append(float(train_time))
+    INFER_TIMES.append(float(inf_time))
+    PARAM_COUNTS.append(int(total_params))
+    MODEL_SIZES_MB.append(float(size_mb))
+
+    # Now do the actual test inference to get outputs used downstream
     std_dev_test, z_test = sess.run([std_dev, z], feed_dict={x: vae_test_data})
 
     # Transpose test HI
@@ -810,7 +844,10 @@ def VAE_train_run(dir):
         Parameters:
             - dir (str): Directory containing data
         Returns: None
-        """
+    """
+
+    global TRAIN_TIMES, INFER_TIMES, PARAM_COUNTS, MODEL_SIZES_MB
+
     # Connect global variable for seed
     global vae_seed
 
@@ -976,6 +1013,36 @@ def VAE_train_run(dir):
 
         # Plotting 5x6 graph with all folds
         plot_images(vae_seed, file_type, dir)
+
+    if len(TRAIN_TIMES) > 0:
+        train_times_arr = np.array(TRAIN_TIMES)
+        infer_times_arr = np.array(INFER_TIMES)
+        params_arr = np.array(PARAM_COUNTS)
+        size_arr = np.array(MODEL_SIZES_MB)
+
+        print("----- VAE overall runtime / size statistics -----")
+        print(f"Number of trained model instances: {len(train_times_arr)}")
+        print(f"Mean train time per model: {train_times_arr.mean():.2f} s "
+              f"(min: {train_times_arr.min():.2f} s, max: {train_times_arr.max():.2f} s)")
+        print(f"Mean inference time per model (test specimen): {infer_times_arr.mean()*1000:.2f} ms "
+              f"(min: {infer_times_arr.min()*1000:.2f} ms, max: {infer_times_arr.max()*1000:.2f} ms)")
+        print(f"Param count range: {params_arr.min()} – {params_arr.max()} "
+              f"(mean: {params_arr.mean():.0f})")
+        print(f"Model size range: {size_arr.min():.3f} – {size_arr.max():.3f} MB "
+              f"(mean: {size_arr.mean():.3f} MB)")
+
+        # Save detailed per-instance stats for reference
+        stats_df = pd.DataFrame({
+            "train_time_s": train_times_arr,
+            "infer_time_s": infer_times_arr,
+            "params": params_arr,
+            "model_size_mb": size_arr
+        })
+        stats_path = os.path.join(dir, "VAE_runtime_stats.csv")
+        stats_df.to_csv(stats_path, index=False)
+        print(f"Saved detailed runtime stats to: {stats_path}")
+    else:
+        print("No VAE runtime stats collected (TRAIN_TIMES is empty).")
 
 def VAE_HPC():
     """
@@ -1382,4 +1449,5 @@ def VAE_sensitivity_analysis(dir):
     print(f"Saved sensitivity results for {file_type} to {out_csv}")
 
 vae_seed = 42
-#csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
+csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
+# VAE_train_run(csv_dir)

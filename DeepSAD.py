@@ -23,6 +23,11 @@ import Graphs
 import warnings
 warnings.filterwarnings('ignore')
 
+DS_TRAIN_TIMES = []
+DS_INFER_TIMES = []
+DS_PARAM_COUNTS = []
+DS_MODEL_SIZES_MB = []
+
 # Global variables necessary for passing data other than parameters during hyperparameter optimisation
 global pass_train_data
 global pass_semi_targets
@@ -707,54 +712,122 @@ def DeepSAD_train_run(dir, freq, file_name, opt=False):
             simple_store_hyperparameters(hyperparameter_optimisation(temp_samples, train_data, semi_targets, n_calls=20, random_state=ds_seed), file_name, samples[sample_count], freq, dir)
         else:
             hyperparameters_df = pd.read_csv(os.path.join(dir, f"hyperparameters-opt-{file_name}.csv"), index_col=0)
-            hyperparameters_str = hyperparameters_df.loc[freq+"_kHz", samples[sample_count]]
+            hyperparameters_str = hyperparameters_df.loc[freq + "_kHz", samples[sample_count]]
             optimized_params = eval(hyperparameters_str)
 
             train_loader = DataLoader(train_dataset, batch_size=int(optimized_params[0]), shuffle=True)
-            
-            # Create, pretrain and train a model
+
+            # -------------------------------------------------
+            # Create model, count params & size
+            # -------------------------------------------------
             model = NeuralNet(size)
-            model = pretrain(model, train_loader, optimized_params[1], weight_decay=weight_decay_AE,
-                             n_epochs=optimized_params[3], lr_milestones=lr_milestones_AE, gamma=gamma_AE)
-            model, loss = train(model, train_loader, optimized_params[2], weight_decay=weight_decay,
-                                n_epochs=optimized_params[4], lr_milestones=lr_milestones, gamma=gamma, eta=eta,
-                                eps=eps, reg=reg)
 
-            # Test for all panels
-            # Load test sample data (targets not used)
-            list = []
-            for test_sample in samples:
-                test_data, temp_targets = load_data(os.path.join(dir, test_sample), file_name_with_freq, labelled_fraction, ignore)
-                test_data = (test_data - normal_mn) / normal_sd  # Normalise using train statistics
+            n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+            size_bytes = n_params * 4  # float32
+            size_mb = size_bytes / (1024 ** 2)
+            print("DeepSAD params:", n_params)
+            print("DeepSAD model size (MB):", size_mb)
 
-                # Calculate HI at each state
+            # -------------------------------------------------
+            # Measure total training time (AE pretrain + DeepSAD)
+            # -------------------------------------------------
+            train_start = time.time()
+
+            model = pretrain(
+                model,
+                train_loader,
+                optimized_params[1],
+                weight_decay=weight_decay_AE,
+                n_epochs=optimized_params[3],
+                lr_milestones=lr_milestones_AE,
+                gamma=gamma_AE
+            )
+            model, loss = train(
+                model,
+                train_loader,
+                optimized_params[2],
+                weight_decay=weight_decay,
+                n_epochs=optimized_params[4],
+                lr_milestones=lr_milestones,
+                gamma=gamma,
+                eta=eta,
+                eps=eps,
+                reg=reg
+            )
+
+            train_time = time.time() - train_start
+            print(f"DeepSAD total train time (this fold): {train_time:.2f} s")
+
+            # -------------------------------------------------
+            # Measure inference time on THIS fold’s test sample
+            # -------------------------------------------------
+            # test_sample is the held-out sample for this loop
+            test_data_inf, _ = load_data(
+                os.path.join(dir, test_sample),
+                file_name_with_freq,
+                labelled_fraction,
+                ignore
+            )
+            test_data_inf = (test_data_inf - normal_mn) / normal_sd
+
+            n_reps = 20
+            inf_start = time.time()
+            for _ in range(n_reps):
+                for state in range(test_data_inf.shape[0]):
+                    data = test_data_inf[state]
+                    _ = embed(data, model)
+            inf_end = time.time()
+            inf_time = (inf_end - inf_start) / n_reps
+            print(f"DeepSAD mean inference time per test specimen (this fold): {inf_time * 1000:.2f} ms")
+
+            # -------------------------------------------------
+            # Store stats globally
+            # -------------------------------------------------
+            global DS_TRAIN_TIMES, DS_INFER_TIMES, DS_PARAM_COUNTS, DS_MODEL_SIZES_MB
+            DS_TRAIN_TIMES.append(float(train_time))
+            DS_INFER_TIMES.append(float(inf_time))
+            DS_PARAM_COUNTS.append(int(n_params))
+            DS_MODEL_SIZES_MB.append(float(size_mb))
+
+            # -------------------------------------------------
+            # Test for all panels (original code, but rename loop var)
+            # -------------------------------------------------
+            hi_list = []
+            for eval_sample in samples:
+                test_data_eval, _ = load_data(
+                    os.path.join(dir, eval_sample),
+                    file_name_with_freq,
+                    labelled_fraction,
+                    ignore
+                )
+                test_data_eval = (test_data_eval - normal_mn) / normal_sd  # Normalise using train statistics
+
                 current_result = []
-                for state in range(test_data.shape[0]):
-                    data = test_data[state]
+                for state in range(test_data_eval.shape[0]):
+                    data = test_data_eval[state]
                     current_result.append(embed(data, model).item())
 
-                # Interpolate
-                list.append(scale_exact(np.array(current_result), 30 - ignore))
+                hi_list.append(scale_exact(np.array(current_result), 30 - ignore))
 
-            list = np.array(list)
+            hi_list = np.array(hi_list)
 
             # Scale so on average starts at 0 and ends at 1, excluding test sample
-            av_start = np.mean(np.concatenate((list[:sample_count, 0], list[sample_count+1:, 0])))
-            list = list - av_start
-            av_end = np.mean(np.concatenate((list[:sample_count, -1], list[sample_count+1:, -1])))
-            list = list/av_end
+            av_start = np.mean(np.concatenate((hi_list[:sample_count, 0], hi_list[sample_count+1:, 0])))
+            hi_list = hi_list - av_start
+            av_end = np.mean(np.concatenate((hi_list[:sample_count, -1], hi_list[sample_count+1:, -1])))
+            hi_list = hi_list/av_end
 
-            ftn = fitness(list)
-            testftn = test_fitness(list[sample_count], np.concatenate((list[:sample_count], list[sample_count+1:])))
+            ftn = fitness(hi_list)
+            testftn = test_fitness(hi_list[sample_count], np.concatenate((hi_list[:sample_count], hi_list[sample_count+1:])))
             print("F-test:", testftn[0], "| Mo:", testftn[1], "| Tr:", testftn[2], "| Pr:", testftn[3])
             print("F-all: ", ftn[0], "| Mo:", ftn[1], "| Tr:", ftn[2], "| Pr:", ftn[3])
             #Graphs.HI_graph(list, dir, samples[sample_count] + " " + freq + "kHz")
 
-            results[sample_count] = list
+            results[sample_count] = hi_list
 
     if opt:
         return hps
-    else:
+    else\
         return results
 
 
@@ -816,9 +889,9 @@ def DeepSAD_HPC():
     Parameters: None
     Returns: None
     """
-    #csv_dir = r"C:\Users\pablo\OneDrive\Escritorio\DeepSAD\PZT-FFT-HLB"
+    csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
     #csv_dir = r"/zhome/ed/c/212206/DeepSAD/PZT-FFT-HLB"
-    csv_dir = "C:\\Users\\Jamie\\Documents\\Uni\\Year 2\\Q3+4\\Project\\CSV-FFT-HLB-Reduced"
+    # csv_dir = "C:\\Users\\Jamie\\Documents\\Uni\\Year 2\\Q3+4\\Project\\CSV-FFT-HLB-Reduced"
 
     print(csv_dir)
 
@@ -852,6 +925,39 @@ def DeepSAD_HPC():
         # Save and plot results
         save_evaluation(np.array(HIs[0]), "DeepSAD_FFT", csv_dir)
         save_evaluation(np.array(HIs[1]), "DeepSAD_HLB", csv_dir)
+
+        # ---------------------------------------------
+        # Runtime / size summary for all DeepSAD models
+        # ---------------------------------------------
+        if len(DS_TRAIN_TIMES) > 0:
+            train_arr = np.array(DS_TRAIN_TIMES)
+            infer_arr = np.array(DS_INFER_TIMES)
+            params_arr = np.array(DS_PARAM_COUNTS)
+            size_arr = np.array(DS_MODEL_SIZES_MB)
+
+            print("----- DeepSAD overall runtime / size statistics -----")
+            print(f"Number of trained model instances: {len(train_arr)}")
+            print(f"Mean train time per model: {train_arr.mean():.2f} s "
+                  f"(min: {train_arr.min():.2f} s, max: {train_arr.max():.2f} s)")
+            print(f"Mean inference time per model (test specimen): {infer_arr.mean()*1000:.2f} ms "
+                  f"(min: {infer_arr.min()*1000:.2f} ms, max: {infer_arr.max()*1000:.2f} ms)")
+            print(f"Param count range: {params_arr.min()} – {params_arr.max()} "
+                  f"(mean: {params_arr.mean():.0f})")
+            print(f"Model size range: {size_arr.min():.3f} – {size_arr.max():.3f} MB "
+                  f"(mean: {size_arr.mean():.3f} MB)")
+
+            stats_df = pd.DataFrame({
+                "train_time_s": train_arr,
+                "infer_time_s": infer_arr,
+                "params": params_arr,
+                "model_size_mb": size_arr
+            })
+            stats_path = os.path.join(csv_dir, "DeepSAD_runtime_stats.csv")
+            stats_df.to_csv(stats_path, index=False)
+            print(f"Saved DeepSAD runtime stats to: {stats_path}")
+        else:
+            print("No DeepSAD runtime stats collected (DS_TRAIN_TIMES is empty).")
+
 
 def DeepSAD_sensitivity_analysis(dir):
     """
@@ -1156,4 +1262,5 @@ def DeepSAD_sensitivity_analysis(dir):
 #    DeepSAD_HPC()
 
 ds_seed = 42
-# csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
+csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
+DeepSAD_HPC()
