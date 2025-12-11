@@ -80,7 +80,7 @@ def big_plot(dir, type, transform):
     markers = ['o', 's', '^', 'D', 'X']
     colours = ['purple', 'blue', 'red', 'green', 'orange']
     labels = ['Sample 1', 'Sample 2', 'Sample 3', 'Sample 4', 'Sample 5']
-    legend_data = [Line2D([0], [0], marker=marker, color=colour, markerfacecolor=colour, markersize=10, label=label) for marker, colour, label in zip(markers, colours, labels)]
+    #legend_data = [Line2D([0], [0], marker=marker, color=colour, markerfacecolor=colour, markersize=10, label=label) for marker, colour, label in zip(markers, colours, labels)]
 
     nrows = len(freqs)+1
     ncols = len(panels)
@@ -129,7 +129,7 @@ def big_plot(dir, type, transform):
     for ax, col in zip(axs[0], panels):
         ax.annotate(f'    Test Sample {panels.index(col) + 1}', (0.5, 1), xycoords='axes fraction', ha='center', fontweight='bold', fontsize=40)
 
-    fig.legend(handles=legend_data, loc="center", bbox_to_anchor=(0.5, 0.03), ncol=5, fontsize=40)
+    #fig.legend(handles=legend_data, loc="center", bbox_to_anchor=(0.5, 0.03), ncol=5, fontsize=40)
 
     # Adjust spacing between subplots and save
     # plt.tight_layout()

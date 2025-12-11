@@ -513,9 +513,9 @@ space = [
         Integer(75, 95, name='batch_size'),
         Real(0.001, 0.01, name='learning_rate'),
         Integer(500, 600, name='epochs'),
-        Real(0.05, 0.1, name='reloss_coeff'),
-        Real(1.4, 1.8, name='klloss_coeff'),
-        Real(2.6, 3, name='moloss_coeff')
+        Real(0.05, 0.1, name='reloss_coeff'), # beta from 0.05 to 0.1
+        Real(1.4, 1.8, name='klloss_coeff'), # alpha from 1.4 to 1.8
+        Real(2.6, 3, name='moloss_coeff') # gamma from 2.6 to 3
     ]
 
 # Use the decorator to automatically convert parameters to keyword arguments
