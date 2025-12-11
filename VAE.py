@@ -197,7 +197,7 @@ def simple_store_hyperparameters(hyperparameters, file, panel, freq, dir):
     # Save the dataframe back to the CSV
     df.to_csv(filename_opt)
 
-def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_coeff, moloss_coeff, vae_train_data, vae_test_data, vae_scaler,
+def VAE_train(hidden_1, batch_size, learning_rate, epochs, beta, alpha, gamma, vae_train_data, vae_test_data, vae_scaler,
               #vae_pca,
               vae_seed, file_type, panel, freq, csv_dir):
     """
@@ -208,9 +208,9 @@ def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_
         - batch_size (int): Batch size
         - learning_rate (float): Learning rate
         - epochs (int): Number of epochs to train
-        - reloss_coeff (float): Coefficient for reconstruction loss in total loss function
-        - klloss_coeff (float): Coefficient for KL divergence loss in total loss function
-        - moloss_coeff (float): Coefficient for monotonicity loss in total loss function
+        - beta (float): Coefficient for reconstruction loss in total loss function
+        - alpha (float): Coefficient for KL divergence loss in total loss function
+        - gamma (float): Coefficient for monotonicity loss in total loss function
         - vae_train_data (np.ndarray): Data used for training, with shape (num_samples, num_features)
         - vae_test_data (np.ndarray): Data used for testing, with shape (num_samples, num_features)
         - vae_scaler (sklearn.preprocessing.StandardScaler): Scaler object for standardization
@@ -323,7 +323,7 @@ def VAE_train(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_
     fealoss = VAE_DCloss(z, batch_size)
 
     # Calculate total loss using respective hyperparameter coefficients
-    loss = tf.reduce_mean(reloss_coeff * reloss + klloss_coeff * klloss + moloss_coeff * fealoss)
+    loss = tf.reduce_mean(beta * reloss + alpha * klloss + gamma * fealoss)
 
     # Set Adam as optimizer
     optm = tf.compat.v1.train.AdamOptimizer(learning_rate).minimize(loss)
@@ -513,15 +513,15 @@ space = [
         Integer(75, 95, name='batch_size'),
         Real(0.001, 0.01, name='learning_rate'),
         Integer(500, 600, name='epochs'),
-        Real(0.05, 0.1, name='reloss_coeff'), # beta from 0.05 to 0.1
-        Real(1.4, 1.8, name='klloss_coeff'), # alpha from 1.4 to 1.8
-        Real(2.6, 3, name='moloss_coeff') # gamma from 2.6 to 3
+        Real(0.05, 0.1, name='beta'), # beta from 0.05 to 0.1
+        Real(1.4, 1.8, name='alpha'), # alpha from 1.4 to 1.8
+        Real(2.6, 3, name='gamma') # gamma from 2.6 to 3
     ]
 
 # Use the decorator to automatically convert parameters to keyword arguments
 @use_named_args(space)
 
-def VAE_objective(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_coeff, moloss_coeff):
+def VAE_objective(hidden_1, batch_size, learning_rate, epochs, beta, alpha, gamma):
     """
     Objective function for optimizing VAE hyperparameters
 
@@ -530,9 +530,9 @@ def VAE_objective(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, kll
         - batch_size (int): Batch size
         - learning_rate (float): Learning rate
         - epochs (int): Number of epochs to train
-        - reloss_coeff (float): Coefficient for reconstruction loss in total loss function
-        - klloss_coeff (float): Coefficient for KL divergence loss in total loss function
-        - moloss_coeff (float): Coefficient for monotonicity loss in total loss function
+        - beta (float): Coefficient for reconstruction loss in total loss function
+        - alpha (float): Coefficient for KL divergence loss in total loss function
+        - gamma (float): Coefficient for monotonicity loss in total loss function
     Returns:
         - error (float): Error from fitness function (3 / fitness)
     """
@@ -544,11 +544,11 @@ def VAE_objective(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, kll
     # Output current parameters being tested, with their values
     print(
         f"Trying parameters: hidden_1={hidden_1}, batch_size={batch_size}, learning_rate={learning_rate}, "
-        f"epochs={epochs}, reloss_coeff={reloss_coeff}, klloss_coeff={klloss_coeff}, moloss_coeff={moloss_coeff}")
+        f"epochs={epochs}, beta={beta}, alpha={alpha}, gamma={gamma}")
 
     # Train VAE and obtain HIs
     health_indicators = VAE_train(hidden_1, batch_size,
-                                  learning_rate, epochs, reloss_coeff, klloss_coeff, moloss_coeff, vae_train_data, vae_test_data, vae_scaler,
+                                  learning_rate, epochs, beta, alpha, gamma, vae_train_data, vae_test_data, vae_scaler,
                                   #vae_pca,
                                   vae_seed, file_type, panel, freq, csv_dir)
 
@@ -593,16 +593,16 @@ def VAE_hyperparameter_optimisation(vae_train_data, vae_test_data, vae_scaler,
         Integer(75, 95, name='batch_size'),
         Real(0.001, 0.01, name='learning_rate'),
         Integer(500, 600, name='epochs'),
-        Real(0.05, 0.1, name='reloss_coeff'),
-        Real(1.4, 1.8, name='klloss_coeff'),
-        Real(2.6, 3, name='moloss_coeff')
+        Real(0.05, 0.1, name='beta'),
+        Real(1.4, 1.8, name='alpha'),
+        Real(2.6, 3, name='gamma')
     ]
 
     # Use the decorator to automatically convert parameters to keyword arguments
     @use_named_args(space)
 
     # Same objective function as before, defined here again, couldn't get it to work otherwise for some reason?
-    def VAE_objective(hidden_1, batch_size, learning_rate, epochs, reloss_coeff, klloss_coeff, moloss_coeff):
+    def VAE_objective(hidden_1, batch_size, learning_rate, epochs, beta, alpha, gamma):
         global vae_seed
         random.seed(vae_seed)
         tf.random.set_seed(vae_seed)
@@ -610,9 +610,9 @@ def VAE_hyperparameter_optimisation(vae_train_data, vae_test_data, vae_scaler,
 
         print(
             f"Trying parameters: hidden_1={hidden_1}, batch_size={batch_size}, learning_rate={learning_rate}, "
-            f"epochs={epochs}, reloss_coeff={reloss_coeff}, klloss_coeff={klloss_coeff}, moloss_coeff={moloss_coeff}")
+            f"epochs={epochs}, beta={beta}, alpha={alpha}, gamma={gamma}")
         health_indicators = VAE_train(hidden_1, batch_size,
-                                      learning_rate, epochs, reloss_coeff, klloss_coeff, moloss_coeff, vae_train_data, vae_test_data, vae_scaler,
+                                      learning_rate, epochs, beta, alpha, gamma, vae_train_data, vae_test_data, vae_scaler,
                                       #vae_pca,
                                       vae_seed, file_type, panel, freq, csv_dir)
         ftn, monotonicity, trendability, prognosability, error = fitness(health_indicators[1])
@@ -1258,12 +1258,12 @@ def VAE_sensitivity_analysis(dir):
     tf.random.set_seed(vae_seed)
     np.random.seed(vae_seed)
 
-    alpha_grid = np.linspace(0.0, 0.4, 5)  # 0.00, 0.10, 0.20, 0.30, 0.40
-    beta_grid = np.linspace(0.5, 3.5, 5)  # 0.5, 1.25, 2.0, 2.75, 3.5
+    alpha_grid = np.linspace(0.5, 3.5, 5)  # 0.5, 1.25, 2.0, 2.75, 3.5
+    beta_grid = np.linspace(0.0, 0.4, 5)  # 0.00, 0.10, 0.20, 0.30, 0.40
     gamma_grid = np.linspace(1.0, 4.5, 5)  # [1.0, 1.875, 2.75, 3.625, 4.5]
 
-    #         Real(0.05, 0.1, name='alpha'),
-    #         Real(1.4, 1.8, name='beta'),
+    #         Real(0.05, 0.1, name='beta'),
+    #         Real(1.4, 1.8, name='alpha'),
     #         Real(2.6, 3, name='gamma')
 
     freqs = ("050_kHz", "100_kHz", "125_kHz", "150_kHz", "200_kHz", "250_kHz")
@@ -1396,9 +1396,9 @@ def VAE_sensitivity_analysis(dir):
                                 batch_size=base_batch,
                                 learning_rate=base_lr,
                                 epochs=base_epochs,
-                                reloss_coeff=alpha,
-                                klloss_coeff=beta,
-                                moloss_coeff=gamma,
+                                beta=beta,
+                                alpha=alpha,
+                                gamma=gamma,
                                 vae_train_data=vae_train_scaled,
                                 vae_test_data=vae_test_scaled,
                                 vae_scaler=vae_scaler,
