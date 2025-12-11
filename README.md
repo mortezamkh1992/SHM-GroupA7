@@ -1,4 +1,5 @@
-"Unsupervised and Semisupervised Health Indicator Construction: Diversity-DeepSAD vs. Monotonicity-Constrained VAE upon different signal processing algorithms"
+"Semi-supervised and unsupervised learning for health indicator extraction from guided waves in aerospace composite structures:
+Diversity-DeepSAD vs. Monotonicity-Constrained VAE upon different signal processing algorithms"
 
 This repository provides a PyTorch implementation of the methods presented in our paper.
 
