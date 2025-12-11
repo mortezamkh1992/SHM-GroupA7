@@ -1450,4 +1450,4 @@ def VAE_sensitivity_analysis(dir):
 
 vae_seed = 42
 csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
-# VAE_train_run(csv_dir)
+VAE_sensitivity_analysis(csv_dir)

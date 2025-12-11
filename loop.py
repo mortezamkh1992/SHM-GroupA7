@@ -4,8 +4,8 @@ RUNTIME_LIMIT_SEC = 3600
 SLEEP_POLL_SEC = 5
 
 CWD = os.path.dirname(os.path.abspath(__file__))
-SCRIPT = os.path.join(CWD, "DeepSAD.py")
-LOCK = os.path.join(CWD, ".deepsad_lock")
+SCRIPT = os.path.join(CWD, "VAE.py")
+LOCK = os.path.join(CWD, ".vae_lock")
 PYTHON = sys.executable
 
 while True:
@@ -16,19 +16,19 @@ while True:
         except OSError:
             pass
 
-    print("Starting DeepSAD.py")
+    print("Starting VAE.py")
     proc = subprocess.Popen([PYTHON, SCRIPT], cwd=CWD)
 
     start = time.time()
     while True:
         ret = proc.poll()
         if ret is not None:
-            print(f"DeepSAD.py exited with code {ret}. Restarting in 5 s...")
+            print(f"VAE.py exited with code {ret}. Restarting in 5 s...")
             time.sleep(5)
             break
 
         if time.time() - start >= RUNTIME_LIMIT_SEC:
-            print("Time limit reached, restarting DeepSAD.py...")
+            print("Time limit reached, restarting VAE.py...")
             proc.terminate()
             try:
                 proc.wait(timeout=15)
