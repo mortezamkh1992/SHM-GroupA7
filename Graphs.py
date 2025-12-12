@@ -138,13 +138,15 @@ def big_plot(dir, type, transform):
     plt.savefig(os.path.join(dir, f"BigPlot_{type}_{transform}.pdf"))
     plt.savefig(os.path.join(dir, f"BigPlot_{type}_{transform}.png"))
 
-def plot_sensitivity_single_vae(csv_path, out_path):
+def plot_sensitivity_single_vae(csv_path, out_path, gamma_slice=None):
     """
         Plot VAE sensitivity surfaces. For each gamma, we plot a 3D surface for F_test and a wireframe for F_all.
 
         Parameters:
         - csv_path (str): Directory containing sensitivity analysis data
         - out_path (str): Directory of output file
+        - gamma_slice (slice or None): Optional slice applied to the sorted list
+          of gamma values for reduced plots.
 
         Returns: None
     """
@@ -156,6 +158,8 @@ def plot_sensitivity_single_vae(csv_path, out_path):
     df = df.dropna(subset=["mean_fitness_all", "mean_fitness_test"])
 
     gammas = sorted(df["gamma"].unique())
+    if gamma_slice is not None:
+        gammas = gammas[gamma_slice]
 
     zmin, zmax = 1.00, 2.60
 
@@ -207,7 +211,7 @@ def plot_sensitivity_single_vae(csv_path, out_path):
         fig.colorbar(last_surf, cax=cax, label="F_test")
 
     plt.tight_layout(rect=[0, 0, 0.90, 1])
-    plt.savefig(out_path.replace(".png", ".pdf"),
+    plt.savefig(out_path,
                 dpi=300,
                 bbox_inches="tight",
                 format="pdf")
@@ -233,18 +237,23 @@ def plot_vae_sensitivity(csv_path):
     ]
 
     for label, dir_path in files:
-        out_path = os.path.join(csv_path, f"VAE_sensitivity_{label}.png")
+        out_path = os.path.join(csv_path, f"VAE_sensitivity_{label}.pdf")
         plot_sensitivity_single_vae(dir_path, out_path)
+
+        out_path_r = os.path.join(csv_path, f"VAE_sensitivity_{label}_reduced.pdf")
+        plot_sensitivity_single_vae(dir_path, out_path_r, gamma_slice=slice(3, 5))
 
     print("Plotted VAE sensitivity analysis.")
 
-def plot_sensitivity_single_deepsad(csv_path, out_path):
+def plot_sensitivity_single_deepsad(csv_path, out_path, lambda_slice=None):
     """
         Plot DeepSAD sensitivity surfaces. For each lambda, plot a 3D surface for F_test and a wireframe for F_all.
 
         Parameters:
         - csv_path (str): Directory containing sensitivity analysis data
         - out_path (str): Directory of output file
+        - lambda_slice (slice or None): Optional slice applied to the sorted list
+          of lambda values for reduced plots.
 
         Returns: None
     """
@@ -259,6 +268,8 @@ def plot_sensitivity_single_deepsad(csv_path, out_path):
     df["log_eta"] = np.log10(df["eta"])
 
     lambdas = sorted(df["lambda"].unique())
+    if lambda_slice is not None:
+        lambdas = lambdas[lambda_slice]
 
     zmin, zmax = 1.00, 2.60
     cmin, cmax = 1.00, 2.10
@@ -322,7 +333,7 @@ def plot_sensitivity_single_deepsad(csv_path, out_path):
         fig.colorbar(last_surf, cax=cax, label="F_test")
 
     plt.tight_layout(rect=[0, 0, 0.90, 1])
-    plt.savefig(out_path.replace(".png", ".pdf"),
+    plt.savefig(out_path,
                 dpi=300,
                 bbox_inches="tight",
                 format="pdf")
@@ -348,8 +359,11 @@ def plot_deepsad_sensitivity(csv_path):
     ]
 
     for label, dir_path in files:
-        out_path = os.path.join(csv_path, f"DeepSAD_sensitivity_{label}.png")
+        out_path = os.path.join(csv_path, f"DeepSAD_sensitivity_{label}.pdf")
         plot_sensitivity_single_deepsad(dir_path, out_path)
+
+        out_path_r = os.path.join(csv_path, f"DeepSAD_sensitivity_{label}_reduced.pdf")
+        plot_sensitivity_single_deepsad(dir_path, out_path_r, lambda_slice=slice(0, 2))
 
     print("Plotted DeepSAD sensitivity analysis.")
 
