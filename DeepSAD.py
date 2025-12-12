@@ -827,7 +827,7 @@ def DeepSAD_train_run(dir, freq, file_name, opt=False):
 
     if opt:
         return hps
-    else\
+    else:
         return results
 
 
