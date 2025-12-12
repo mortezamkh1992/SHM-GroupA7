@@ -367,5 +367,6 @@ def plot_deepsad_sensitivity(csv_path):
 
     print("Plotted DeepSAD sensitivity analysis.")
 
-plot_vae_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
-plot_deepsad_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
+if __name__ == "__main__":
+    plot_vae_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
+    plot_deepsad_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
