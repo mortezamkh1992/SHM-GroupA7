@@ -236,6 +236,8 @@ def plot_vae_sensitivity(csv_path):
         out_path = os.path.join(csv_path, f"VAE_sensitivity_{label}.png")
         plot_sensitivity_single_vae(dir_path, out_path)
 
+    print("Plotted VAE sensitivity analysis.")
+
 def plot_sensitivity_single_deepsad(csv_path, out_path):
     """
         Plot DeepSAD sensitivity surfaces. For each lambda, plot a 3D surface for F_test and a wireframe for F_all.
@@ -348,6 +350,8 @@ def plot_deepsad_sensitivity(csv_path):
     for label, dir_path in files:
         out_path = os.path.join(csv_path, f"DeepSAD_sensitivity_{label}.png")
         plot_sensitivity_single_deepsad(dir_path, out_path)
+
+    print("Plotted DeepSAD sensitivity analysis.")
 
 plot_vae_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")
 plot_deepsad_sensitivity(r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\Sensitivity_Final")

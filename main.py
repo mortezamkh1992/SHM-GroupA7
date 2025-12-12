@@ -6,7 +6,7 @@ import os
 import math
 
 # Import modules
-from Signal_Processing import Transforms as SP
+from Signal_Processing import Transforms as SP, Preprocess as Data_Preprocess
 from Prognostic_criteria import fitness, scale_exact
 from DeepSAD import DeepSAD_train_run, DeepSAD_sensitivity_analysis
 from VAE import VAE_optimize_hyperparameters, VAE_train_run, VAE_process_csv_files, simple_store_hyperparameters, \
@@ -366,7 +366,7 @@ def saveDeepSAD(dir):
 
     # Save and plot results
     save_evaluation(np.array(HIs_FFT), "DeepSAD_FFT", dir, filename)
-    plot_ds_images(dir, "FFT")
+    # plot_ds_images(dir, "FFT")
 
     # Generate HIs for all frequencies from Hilbert features
     for freq in range(len(frequencies)):
@@ -375,7 +375,7 @@ def saveDeepSAD(dir):
 
     # Save and plot results
     save_evaluation(np.array(HIs_HLB), "DeepSAD_HLB", dir, filename)
-    plot_ds_images(dir, "HLB")
+    # plot_ds_images(dir, "HLB")
 
 
 def hyperVAE(dir, concatenate=False):

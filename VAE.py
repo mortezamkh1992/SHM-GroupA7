@@ -1448,6 +1448,7 @@ def VAE_sensitivity_analysis(dir):
 
     print(f"Saved sensitivity results for {file_type} to {out_csv}")
 
-vae_seed = 42
-csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
-# VAE_train_run(csv_dir)
+if __name__ == "__main__":
+    vae_seed = 42
+    csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\VAE_Final"
+    # VAE_train_run(csv_dir)

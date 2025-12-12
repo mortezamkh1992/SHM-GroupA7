@@ -875,11 +875,11 @@ def save_evaluation(features, label, dir):
     pd.DataFrame(criteria[2]).to_csv(os.path.join(dir, label + "_seed_" + str(ds_seed) + "_Tre.csv"), index=False)
     pd.DataFrame(criteria[3]).to_csv(os.path.join(dir, label + "_seed_" + str(ds_seed) + "_Pro.csv"), index=False)
 
-    ## Generate graphs of Health Indices (HIs)
-    #for freq in range(6):
-    #    print("Graphing: " + frequencies[freq] + "kHz")
-    #    for feat in range(len(features[0])):
-    #        Graphs.HI_graph(features[freq][feat], dir=dir, name=f"HI_graph_{frequencies[freq]}_{feat}_{label}_seed_{ds_seed}")
+    # Generate graphs of Health Indices (HIs)
+    for freq in range(6):
+        print("Graphing: " + frequencies[freq] + "kHz")
+        for feat in range(len(features[0])):
+            Graphs.HI_graph(features[freq][feat], dir=dir, name=f"HI_graph_{frequencies[freq]}_{feat}_{label}_seed_{ds_seed}")
 
 
 def DeepSAD_HPC():
@@ -1261,6 +1261,7 @@ def DeepSAD_sensitivity_analysis(dir):
 #    ds_seed = repeats
 #    DeepSAD_HPC()
 
-ds_seed = 42
-csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
-DeepSAD_HPC()
+if __name__ == "__main__":
+    ds_seed = 42
+    csv_dir = r"C:\Users\Pablo\OneDrive - Delft University of Technology\Desktop\TUDelft\DeepSAD_Final"
+    # DeepSAD_HPC()
