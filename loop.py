@@ -1,5 +1,16 @@
 import os, sys, time, subprocess
 
+"""
+Supervisor for long-running DTC-VAE or Diversity-DeepSAD experiments.
+
+Continuously runs `VAE.py` or `DeepSAD.py` in a restart loop to support unattended
+sensitivity analyses or hyperparameter optimisation. Each run is
+time-limited (default: 1 hour) and then restarted, preventing memory
+buildup over extended executions. A stale lock file is cleared before
+each run, and processes are safely terminated if they exceed the
+runtime limit.
+"""
+
 RUNTIME_LIMIT_SEC = 3600
 SLEEP_POLL_SEC = 5
 
