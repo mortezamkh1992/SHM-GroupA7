@@ -92,6 +92,6 @@ author = {James Josep Perry and Pablo {Garcia-Conde Ortiz} and George Konstantin
 ```
 
 The published work is available at:  
-https://www.sciencedirect.com/science/article/pii/S0278612525003115?via%3Dihub
+https://doi.org/10.1016/j.jmsy.2025.12.014
 
 ---
