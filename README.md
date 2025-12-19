@@ -78,11 +78,16 @@ https://dataverse.nl/dataset.xhtml?persistentId=doi:10.34894/QNURER
 If you use this code or dataset in your work, please cite the paper:
 
 ```bibtex
-@article{AUTHOR_YEAR_HI_GW,
-title   = {Semi-supervised and unsupervised learning for health indicator extraction from guided waves in aerospace composite structures},
-author  = {AUTHOR LIST},
-journal = {Journal Name},
-year    = {YEAR},
+@article{PERRY2026468,
+title = {Semi-supervised and unsupervised learning for health indicator extraction from guided waves in aerospace composite structures},
+journal = {Journal of Manufacturing Systems},
+volume = {84},
+pages = {468-492},
+year = {2026},
+issn = {0278-6125},
+doi = {https://doi.org/10.1016/j.jmsy.2025.12.014},
+url = {https://www.sciencedirect.com/science/article/pii/S0278612525003115},
+author = {James Josep Perry and Pablo {Garcia-Conde Ortiz} and George Konstantinou and Cornelie Vergouwen and Edlyn Santha Kumaran and Morteza Moradi},
 }
 ```
 
